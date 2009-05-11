@@ -183,6 +183,14 @@ class CommandLine(object):
         self.next = 1
         if len(self.args) > 1:
             self._next()
+            
+    def getPosition(self):
+        if self.finished():
+            return self.args, 0
+        inShort = len(self.arg)
+        if self.value:
+            inShort-=len(self.value)
+        return self.next, inShort 
         
     def finished(self):
         return self.next == 1
@@ -214,22 +222,23 @@ class CommandLine(object):
     def _next(self):
         '''Handles the next argument, returning True if it is an option'''
         self.arg = self.args[self.next]
+        arg=self.arg #...
         self.next += 1
         self.option = False
         if self.canBeOption:
             match = self.reOption.match(self.arg)
             if match:
                 self.option, self.isShort = True, False
-                self.arg = match.group(1)
+                arg = match.group(1)
             else:               
                 match = self.reShort and self.reShort.match(self.arg)
                 if match:
-                    self.arg = match.group(1)
-                    self.name, self.value = self.arg[0], self.arg[1:]
+                    arg = match.group(1)
+                    self.name, self.value = arg[0], arg[1:]
                     self.option, self.isShort, self.split = True, True, False
                     return True
                 self.canBeOption = not self.gnuMode
-        self.split, self.name, self.value = self.separate(self.arg)
+        self.split, self.name, self.value = self.separate(arg)
         return self.option
 
 
@@ -442,6 +451,17 @@ class OptMatcherInfo(object):
                 s, l = l, s
             setAlias(s, l, self.shortDefs, self.defs)
             
+    def getIndexName(self, index):
+        #returns the flag/option/parameter with the given index (no prefixes) 
+        #Note that it will be returned any of the aliases        
+        for n, v in self.flags.items():
+            if v == index:
+                return 'flag '+n
+        for n, v in self.options.items():
+            if v == index:
+                return 'option '+n
+        return 'parameter '+self.pars[index]
+            
     def _describe(self):
         '''Describes the underlying method'''
         try:
@@ -489,9 +509,9 @@ class OptMatcherInfo(object):
         kwargs = flags & 0x0008
         #dismiss self, *args and **kwargs as var names
         if varargs:
-            varnames = varnames[:-1]
+            varnames = varnames[: - 1]
         if kwargs:
-            varnames = varnames[:-1]
+            varnames = varnames[: - 1]
         if hasattr(f, 'im_self'):
             varnames = varnames[1:]
         return list(varnames), varargs, kwargs
@@ -514,18 +534,17 @@ class OptMatcherHandler(OptMatcherInfo):
     def invoke(self):
         '''Invokes the underlying function.'''
         #It is invoked using the options/parameters/defaults already setup
-        #It is an error to invoke this method if isInvokable returned False
-        args, kwargs = self._getInvokingPars()
+        status, args, kwargs = self._getInvokingPars()
         return self.func(*args, **kwargs)
     
-    def isInvokable(self):
+    def checkInvokable(self):
         '''Verifies whether the underlying function can be invoked.'''
         #It can, if all the options/parameters are specified or have defaults
-        return self._getInvokingPars() != None
+        return self._getInvokingPars()[0]
         
     def _getInvokingPars(self):
         #Returns the parameters required to invoke the underlying function.
-        #The parameters are returned as a tuple (*args, **kwargs), 
+        #The parameters are returned as a tuple (*args, **kwargs)
         args, parameters = [], self.providedPars[:]
         for i in range(1, self.lastArg):
             try:
@@ -541,15 +560,20 @@ class OptMatcherHandler(OptMatcherInfo):
                         value = self.defaults[i]
                     except KeyError:
                         #Neither, this function cannot be invoked
-                        return None
+                        return ('Missing required '+ self.getIndexName(i), 
+                                None, None)
             args.append(value)
         #if the function defined a *arg parameter, it can handle the 
         #  remaining provided parameters
         args.extend(parameters)
-        return args, self.kwargs or {}
+        return None, args, self.kwargs or {}
                         
     def handleArg(self, commandLine):
-        '''Handles one argument in the command line.'''
+        '''Handles one argument in the command line'''
+        #Returns None if ok, otherwise the reason why it cannot consume the 
+        #  argument
+        #An exception is raised in not recoverable situations: like flag not
+        #     provided when needed, etc
         #This handling can imply, under getopt mode, consuming more 
         # than one argument in the command line, or just a portion
         # of one, if a short option was specified
@@ -560,11 +584,12 @@ class OptMatcherHandler(OptMatcherInfo):
                 return self._handleShortArg(commandLine)
             return self._handleLongArg(commandLine)
         #If not, it is a parameter, but perhaps there are already too many...
-        if self.vararg or (len(self.providedPars) < len(self.pars)):
-            self.providedPars.append(commandLine.arg)
-            commandLine.setArgHandled()
-            return True
-        return False
+        if not self.vararg and (len(self.providedPars) >= len(self.pars)):
+            return 'Unexpected argument: ' + commandLine.arg
+         
+        self.providedPars.append(commandLine.arg)
+        commandLine.setArgHandled()
+        return None
     
     def _handleLongArg(self, cmd):
         '''Handles one long argument in the command line.'''
@@ -572,7 +597,7 @@ class OptMatcherHandler(OptMatcherInfo):
         #only check the name if defined (and not defined as a short option)
         okName = name in self.defs
         if okName and self._handleOption(cmd):
-            return True
+            return None
         
         flag = okName and self.flags.get(name, None)
         if flag:
@@ -585,7 +610,8 @@ class OptMatcherHandler(OptMatcherInfo):
                 if not name:
                     #perhaps is given as -D=value(bad) or separate (getoptmode)
                     if cmd.split or not self.getoptmode or cmd.setArgHandled():
-                        raise UsageException('Incorrect prefix ' + cmd.arg)
+                        raise UsageException(
+                            'Incorrect prefix usage on argument ' + cmd.arg)
                     #note that cmd.value is the value of next argument now
                     name = cmd.name 
                 self.provided[prefix].append((name, cmd.value))
@@ -593,36 +619,38 @@ class OptMatcherHandler(OptMatcherInfo):
                 try:
                     self.kwargs[cmd.name] = cmd.value
                 except TypeError:
-                    return False #no kwargs, this argument cannot be used                    
+                    #no kwargs, this argument cannot be used
+                    return 'Unexpected argument: ' + cmd.arg                     
         cmd.setArgHandled()
-        return True
             
-    def _handleShortArg(self, command):
+    def _handleShortArg(self, cmd):
         '''Handles one short argument in the command line'''
         #This method is only called for getopt mode
-        name = command.name
+        name = cmd.name
         if not name in self.shortDefs:
             #in shorts, name is just one letter, so not inclusion in 
             #shortDefs means that it is neither a prefix, no more checks needed
-            return False
+            return 'Unexpected flag ' + name + ' in argument ' + cmd.arg #@@@@@@@@@@@@@@@@
         flag = self.flags.get(name, None)
         if flag:
             self.provided[flag] = True
-            command.setShortArgHandled()
-        elif not self._handleOption(command):
+            cmd.setShortArgHandled()
+        elif not self._handleOption(cmd):
             prefix = self.prefixes.get(name, None)
             #no flag, no option, but in shortDefs->is a prefix! 
-            if not command.value:
+            if not cmd.value:
                 #given separately                    
-                if command.setArgHandled():
+                if cmd.setArgHandled():
                     raise UsageException('Incorrect prefix ' + name)
-                command.value = command.arg
-            self.provided[prefix].append(command.separate(command.value)[1:])
-            command.setArgHandled()            
-        return True
+                cmd.value = cmd.arg
+            self.provided[prefix].append(cmd.separate(cmd.value)[1:])
+            cmd.setArgHandled()            
+        return None
                 
     def _handleOption(self, cmd):
-        '''Checks if the command is a valid option, handling it if so'''
+        '''Checks if the command is a valid option, handling it if so
+           Returns the option handled, or None if not handled
+        '''
         #the normal case, -name=value, implies command.value
         name = cmd.name
         option = self.options.get(name, None)
@@ -732,34 +760,42 @@ class OptionMatcher (object):
 
         commandLine = CommandLine(args, option, delimiter, gnu)
         
+        highestProblem=None, 'Invalid command line input'
+        
         #the method is simple: for each matcher, we verify if the arguments
         # suit it, taking in consideration the common handler, if given.
         #As soon as a matcher can handle the arguments, we invoke it, as well
         # as the common handler, if given.
         for handler in matchers:            
-            if self._validHandlers(commonHandler, handler, commandLine):
+            problem = self._tryHandlers(commonHandler, handler, commandLine)
+            if not problem:
                 #handlers ok: invoke common handler, then matcher's handler
                 if commonHandler:
                     commonHandler.invoke()
                 return handler.invoke()
+            position = commandLine.getPosition()
+            print 'Problem '+problem+' on ',position
+            if position > highestProblem[0]:
+                highestProblem = position, problem 
             #prepare command line, common handler for next loop
             commandLine.reset()
             if commonHandler:
                 commonHandler.reset()
-        raise UsageException ('Invalid command line input')
+        raise UsageException (highestProblem[1])
     
-    def _validHandlers(self, commonHandler, commandHandler, commandLine):
+    def _tryHandlers(self, commonHandler, commandHandler, commandLine):
         #Checks if the specified handlers can process the command line.
-        #If so, it returns True, letting the handlers ready to be invoked 
+        #If so, it returns None, letting the handlers ready to be invoked
+        #Otherwise, it returns the reason why it cannot be handled 
         while not commandLine.finished():
             if commonHandler:
-                if commonHandler.handleArg(commandLine):
+                if not commonHandler.handleArg(commandLine):
                     continue
-            if not commandHandler.handleArg(commandLine):
-                return False
-        if commonHandler and not commonHandler.isInvokable():
-            return False
-        return commandHandler.isInvokable()
+            problem = commandHandler.handleArg(commandLine)
+            if problem:                
+                return problem
+        return ((commonHandler and commonHandler.checkInvokable()) or 
+                commandHandler.checkInvokable())
         
 
 def optmatcher(flags=None, options=None, intOptions=None,
