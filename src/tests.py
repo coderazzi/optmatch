@@ -13,21 +13,24 @@ from optmatch import optmatcher, optcommon
 #        except exception, which:
 #            self.assertEqual(str(which), exStr)
 #
-#    def test4001(self):
-#        '''API test: defining flag via decorator'''
-#    
+#    def test1042(self):
+#        '''Aliases test using common, varargs'''
+#        
 #        class Simple(OptionMatcher):
 #            
+##            @optcommon
+##            def common_options(self, vFlag):
+##                self.v = vFlag
+#            
 #            @optmatcher
-#            def handleA(self, vFlag, kFlag): pass
-#
-#            @optmatcher
-#            def handleB(self, oFlag, pOption): pass
-#
-#        self.assertRaiseArg(UsageException,
-#                            'Missing required parameter class',
-#                            Simple().process, [None, '-o'])
-#
+#            def handle(self, oOption, *ends):
+#                return self.v, oOption, ends
+#        
+##        args = [None, '--verbose', '--option=2', '1', '2']
+#        args = [None, '--option=2', '1', '2']
+#        aliases = {'v':'verbose', 'o':'option'}
+#        self.assertEquals(Simple(aliases=aliases).process(args),
+#                          (True, '2', ('1', '2')))
 #class Tests:
 class Tests(unittest.TestCase):
 
@@ -689,7 +692,7 @@ class OptMatcherTests(Tests):
             
         args = [None, '--verbose', '--option=2', 'file']
         aliases = {'v':'verbose', 'o':'option'}
-        self.assertEquals(Simple().process(args, aliases=aliases),
+        self.assertEquals(Simple(aliases=aliases).process(args),
                           (True, '2', 'file'))
 
     def test1042(self):
@@ -707,7 +710,7 @@ class OptMatcherTests(Tests):
         
         args = [None, '--verbose', '--option=2', '1', '2']
         aliases = {'v':'verbose', 'o':'option'}
-        self.assertEquals(Simple().process(args, aliases=aliases),
+        self.assertEquals(Simple(aliases=aliases).process(args),
                           (True, '2', ('1', '2')))
 
     def test1043(self):
@@ -719,7 +722,7 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, kOption): pass
             
         self.assertRaises(OptionMatcherException,
-                          Simple().process, [], aliases={'o':'k'})
+                          Simple(aliases={'o':'k'}).process, [])
 
     def test1044(self):
         '''Aliases test, overriding some definition'''
@@ -730,7 +733,7 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, optOption): pass
             
         self.assertRaises(OptionMatcherException,
-                          Simple().process, [], aliases={'o':'opt'})
+                          Simple(aliases={'o':'opt'}).process, [])
 
     def test1045(self):
         '''Aliases test, overriding some definition, way round'''
@@ -741,7 +744,7 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, optOption): pass
             
         self.assertRaises(OptionMatcherException,
-                          Simple().process, [], aliases={'opt':'o'})
+                          Simple(aliases={'opt':'o'}).process, [])
 
     def test1046(self):
         '''Aliases test, overriding some definition, not getopt mode'''
@@ -752,7 +755,7 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, vOption): pass
             
         self.assertRaises(OptionMatcherException,
-                          Simple().process, [], aliases={'v':'o'}, option='-')
+                          Simple(aliases={'v':'o'}, option='-').process, [])
 
     def test1051(self):
         '''Integer options'''
@@ -833,9 +836,9 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, arg):
                 return oOption, arg
             
-        self.assertEquals(Simple().process([None, '/o:23', 'file'],
-                                           option='/',
-                                           delimiter=':'), ('23', 'file')) 
+        self.assertEquals(Simple(option='/',delimiter=':').
+                          process([None, '/o:23', 'file']),
+                                           ('23', 'file')) 
 
     def test2002(self):
         '''API test: non getoptMode with aliases'''
@@ -846,10 +849,11 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, arg):
                 return oOption, arg
             
-        self.assertEquals(Simple().process([None, '/opt:23', 'file'],
-                                           aliases={'o':'opt'},
-                                           option='/',
-                                           delimiter=':'), ('23', 'file')) 
+        self.assertEquals(Simple(aliases={'o':'opt'},
+                                 option='/',\
+                                 delimiter=':').
+                                 process([None, '/opt:23', 'file']),
+                                           ('23', 'file')) 
             
     def test2003(self):
         '''API test: non getoptMode with aliases way around'''
@@ -860,10 +864,11 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, arg):
                 return oOption, arg
             
-        self.assertEquals(Simple().process([None, '/opt:23', 'file'],
-                                           aliases={'opt':'o'},
-                                           option='/',
-                                           delimiter=':'), ('23', 'file')) 
+        self.assertEquals(Simple(aliases={'opt':'o'},
+                                 option='/',
+                                 delimiter=':').
+                                 process([None, '/opt:23', 'file']),
+                                           ('23', 'file')) 
 
     def test2011(self):
         '''API test: specifying external common handler'''
@@ -880,9 +885,9 @@ class OptMatcherTests(Tests):
             def handle(self, arg):
                 return Any.oOption, arg
             
-        self.assertEquals(Simple().process([None, '-o23', 'file'],
-                                           common=Any.specificCommonHandler),
-                                           ('23', 'file')) 
+        s=Simple()
+        s.setMatchers(None, Any.specificCommonHandler)
+        self.assertEquals(s.process([None, '-o23', 'file']), ('23', 'file')) 
 
     def test2012(self):
         '''API test: specifying external handlers as methods'''
@@ -893,9 +898,9 @@ class OptMatcherTests(Tests):
             def myOwnHandler(oOption, par):
                 return oOption, par
             
-        self.assertEquals(OptionMatcher().process([None, '-o23', 'file'],
-                                           matchers=[Any.myOwnHandler]),
-                                           ('23', 'file')) 
+        s=OptionMatcher()
+        s.setMatchers([Any.myOwnHandler])
+        self.assertEquals(s.process([None, '-o23', 'file']), ('23', 'file')) 
 
     def test2021(self):
         '''API test: specifying static method as command handler'''
@@ -906,17 +911,20 @@ class OptMatcherTests(Tests):
             def handle(f):
                 return f
             
-        self.assertEquals(OptionMatcher().process([None, 'ok'],
-                                           matchers=[Simple.handle]), 'ok')
+        s=OptionMatcher()
+        s.setMatchers([Simple.handle])
+        self.assertEquals(s.process([None, 'ok']), 'ok')
 
     def test2022(self):
         '''API test: specifying incorrect flags on command handler'''
         
         def work(aFlag, aOption): pass
         
+        s=OptionMatcher()
+        s.setMatchers([work])
         self.assertRaiseArg(OptionMatcherException,
                             'Repeated option "a" in function work',
-                            OptionMatcher().process, [None], matchers=[work])
+                            s.process, [None])
 
 
 class OptMatcherTestsOnDecoration(Tests):

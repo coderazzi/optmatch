@@ -189,7 +189,7 @@ class CommandLine(object):
             return self.args, 0
         inShort = len(self.arg)
         if self.value:
-            inShort-=len(self.value)
+            inShort -= len(self.value)
         return self.next, inShort 
         
     def finished(self):
@@ -222,7 +222,7 @@ class CommandLine(object):
     def _next(self):
         '''Handles the next argument, returning True if it is an option'''
         self.arg = self.args[self.next]
-        arg=self.arg #...
+        arg = self.arg #...
         self.next += 1
         self.option = False
         if self.canBeOption:
@@ -456,11 +456,11 @@ class OptMatcherInfo(object):
         #Note that it will be returned any of the aliases        
         for n, v in self.flags.items():
             if v == index:
-                return 'flag '+n
+                return 'flag ' + n
         for n, v in self.options.items():
             if v == index:
-                return 'option '+n
-        return 'parameter '+self.pars[index]
+                return 'option ' + n
+        return 'parameter ' + self.pars[index]
             
     def _describe(self):
         '''Describes the underlying method'''
@@ -509,9 +509,9 @@ class OptMatcherInfo(object):
         kwargs = flags & 0x0008
         #dismiss self, *args and **kwargs as var names
         if varargs:
-            varnames = varnames[: - 1]
+            varnames = varnames[:-1]
         if kwargs:
-            varnames = varnames[: - 1]
+            varnames = varnames[:-1]
         if hasattr(f, 'im_self'):
             varnames = varnames[1:]
         return list(varnames), varargs, kwargs
@@ -560,7 +560,7 @@ class OptMatcherHandler(OptMatcherInfo):
                         value = self.defaults[i]
                     except KeyError:
                         #Neither, this function cannot be invoked
-                        return ('Missing required '+ self.getIndexName(i), 
+                        return ('Missing required ' + self.getIndexName(i),
                                 None, None)
             args.append(value)
         #if the function defined a *arg parameter, it can handle the 
@@ -702,7 +702,46 @@ class OptionMatcher (object):
     ''' Class handling command line arguments by matching method parameters.
     It supports naturally the handling of mutually exclusive options.
     '''
+    
+    def __init__(self, matchers=None, commonMatcher=None, aliases=None,
+                 option='--', delimiter='='):
+        '''
+        Param matchers define the methods/functions to handle the command 
+            line, in specific order. 
+            If not specified, all methods of current instance with 
+            decorator optmatcher are used, with the specified priority
+        Param common can be used to specify a matcher to handle common 
+            options. If it is not specified, the method of the current 
+            instance with decorator optcommon is used -if any-.
+        Param aliases is a map, allowing setting option aliases. 
+            In getopt mode, all aliases must be defined between a short
+            (1 character length) option and a long (>1 character length)
+            option
+        Param option defines the prefix used to characterize an argument
+            as an option. If is defined as '--', it implies 
+            automatically getopt mode, which enables the usage of short 
+            options with prefix -
+        Param delimiter defines the character separating options' name 
+            and value
+        '''
+        self.setMatchers(matchers, commonMatcher)
+        self.setAliases(aliases)
+        self.setMode(option, delimiter)
                
+    def setMatchers(self, matchers, commonMatcher=None):
+        '''Sets the matchers and the common matcher. See __init__'''
+        self._matchers = matchers
+        self._common = commonMatcher
+    
+    def setAliases(self, aliases):
+        '''Sets the aliases. See __init__'''
+        self._aliases = aliases
+    
+    def setMode(self, option, delimiter):
+        '''Sets the working mode. See __init__'''
+        self._option = option or self._option
+        self._delimiter = delimiter or self._delimiter
+    
     def getMatcherMethods(self, instance=None):
         '''Returns a list with all the methods defined as optmatcher
         The list is sorted by priority, then alphabetically
@@ -720,53 +759,20 @@ class OptionMatcher (object):
             return all[0]
         return None 
                                                                          
-    def process(self, args, matchers=None, common=None, aliases=None,
-                option='--', gnu=False, delimiter='='):
+    def process(self, args, gnu=False):
         '''Processes the given command line arguments
-        Param args: command line arguments (first is the command's name)
-        Param matchers define the methods/functions to handle the command 
-            line, in specific order. 
-            If not specified, all methods of current instance with 
-            decorator optmatcher are used, with the specified priority
-        Param common can be used to specify a matcher to handle common 
-            options. If it is not specified, the method of the current 
-            instance with decorator optcommon is used -if any-.
-        Param aliases is a map, allowing setting option aliases. 
-            In getopt mode, all aliases must be defined between a short
-            (1 character length) option and a long (>1 character length)
-            option   
-        Param option defines the prefix used to characterize an argument
-            as an option. If is defined as '--', it implies 
-            automatically getopt mode, which enables the usage of short 
-            options with prefix -
         Param gnu determines gnu behaviour. Is True, no-option 
             arguments can be only specified latest
-        Param delimiter defines the character separating options' name 
-            and value
         '''
-        def createHandle(function):
-            if not function:
-                return None
-            ret = OptMatcherHandler(function, getoptmode)
-            if aliases:
-                ret.setAliases(aliases)                
-            return ret
-            
-        getoptmode = option == '--'
-        
-        commonHandler = createHandle(common or self.getCommonMatcherMethod())
-        matchers = [createHandle(f) 
-                    for f in (matchers or self.getMatcherMethods())]
-
-        commandLine = CommandLine(args, option, delimiter, gnu)
-        
-        highestProblem=None, 'Invalid command line input'
+        matcherHandlers, commonHandler = self._createHandlers()        
+        commandLine = CommandLine(args, self._option, self._delimiter, gnu)        
+        highestProblem = None, 'Invalid command line input'
         
         #the method is simple: for each matcher, we verify if the arguments
         # suit it, taking in consideration the common handler, if given.
         #As soon as a matcher can handle the arguments, we invoke it, as well
         # as the common handler, if given.
-        for handler in matchers:            
+        for handler in matcherHandlers:            
             problem = self._tryHandlers(commonHandler, handler, commandLine)
             if not problem:
                 #handlers ok: invoke common handler, then matcher's handler
@@ -774,14 +780,30 @@ class OptionMatcher (object):
                     commonHandler.invoke()
                 return handler.invoke()
             position = commandLine.getPosition()
-            print 'Problem '+problem+' on ',position
             if position > highestProblem[0]:
                 highestProblem = position, problem 
             #prepare command line, common handler for next loop
             commandLine.reset()
             if commonHandler:
                 commonHandler.reset()
-        raise UsageException (highestProblem[1])
+        raise UsageException (highestProblem[1])        
+    
+    def _createHandlers(self):
+        #Returns all the required handlers, as a tuple
+        #the first element is the list of matchers, and the second, the
+        #common matcher
+        def createHandle(function):
+            if not function:
+                return None
+            ret = OptMatcherHandler(function, self._option == '--')
+            if self._aliases:
+                ret.setAliases(self._aliases)                
+            return ret
+
+        return ([createHandle(f) 
+                    for f in (self._matchers or self.getMatcherMethods())],
+                createHandle(self._common or self.getCommonMatcherMethod()))
+
     
     def _tryHandlers(self, commonHandler, commandHandler, commandLine):
         #Checks if the specified handlers can process the command line.
