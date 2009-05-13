@@ -12,25 +12,34 @@ from optmatch import optmatcher, optcommon
 #            self.fail('Expected exception not raised')
 #        except exception, which:
 #            self.assertEqual(str(which), exStr)
-#
-#    def test1042(self):
-#        '''Aliases test using common, varargs'''
-#        
+#            
+#    def test30(self):
+#        '''Defining a non existing flag'''
+#    
 #        class Simple(OptionMatcher):
 #            
-##            @optcommon
-##            def common_options(self, vFlag):
-##                self.v = vFlag
-#            
 #            @optmatcher
-#            def handle(self, oOption, *ends):
-#                return self.v, oOption, ends
-#        
-##        args = [None, '--verbose', '--option=2', '1', '2']
-#        args = [None, '--option=2', '1', '2']
-#        aliases = {'v':'verbose', 'o':'option'}
-#        self.assertEquals(Simple(aliases=aliases).process(args),
-#                          (True, '2', ('1', '2')))
+#            def handleA(self, o):
+#                return False
+#
+#            @optmatcher(flags='k')
+#            def handleB(self, o):
+#                return True
+#            
+#        self.failUnless(Simple().process([None, '-k', 'o']))
+#
+#    def test30x(self):
+#        '''Non existing flag are required'''
+#    
+#        class Simple(OptionMatcher):
+#            
+#            @optmatcher(flags='k')
+#            def handleB(self):
+#                pass
+#            
+#        self.assertRaiseArg(UsageException, 'Missing required flag k',
+#                            Simple().process, [None])
+#
 #class Tests:
 class Tests(unittest.TestCase):
 
@@ -725,7 +734,7 @@ class OptMatcherTests(Tests):
                           Simple(aliases={'o':'k'}).process, [])
 
     def test1044(self):
-        '''Aliases test, overriding some definition'''
+        '''Aliases test, overriding some definition -long '''
         
         class Simple(OptionMatcher):
             
@@ -756,6 +765,17 @@ class OptMatcherTests(Tests):
             
         self.assertRaises(OptionMatcherException,
                           Simple(aliases={'v':'o'}, option='-').process, [])
+
+    def test1047(self):
+        '''Aliases test, overriding some long definition'''
+        
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleB(self, verboseFlag=False): pass
+        
+        aliases = {'v':'verbose'}
+        Simple(aliases=aliases).process([None])
 
     def test1051(self):
         '''Integer options'''
@@ -826,6 +846,21 @@ class OptMatcherTests(Tests):
                 return valOptionFloat
             
         self.assertEquals(Simple().process([None, '--val=2']), 2) 
+
+    def test1057(self):
+        '''Parameters for common and matchers'''
+        
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def common(self, par1):
+                self.par1=par1
+
+            @optmatcher
+            def handle(self, par2):
+                return self.par1, par2
+            
+        self.assertEquals(Simple().process([None, 'a', 'b']), ('a', 'b')) 
 
     def test2001(self):
         '''API test: non getoptMode'''
@@ -990,20 +1025,112 @@ class OptMatcherTestsOnDecoration(Tests):
     
         class Simple(OptionMatcher):
             
-            @optmatcher(flags='o', parameters='va as file')
+            @optmatcher(flags='o', renamePars='va as file')
             def handleA(self, o, va):
                 return o and va == 'f'
             
         self.failUnless(Simple().process([None, '-o', 'f']))
 
+    def test3017(self):
+        '''Renaming a parameter without as'''
+    
+        class Simple(OptionMatcher):
+            
+            @optmatcher(renamePars='v')
+            def handleA(self, v):
+                return True
+            
+        self.assertRaiseArg(OptionMatcherException, 
+                            'Invalid renamePar v',
+                            Simple().process, [None])
+
+    def test3018(self):
+        '''Renaming a parameter with invalid as'''
+    
+        class Simple(OptionMatcher):
+            
+            @optmatcher(renamePars='v as v')
+            def handleA(self, v):
+                return True
+            
+        self.assertRaiseArg(OptionMatcherException, 
+                            'Invalid renamePar v',
+                            Simple().process, [None])
+
+    def test3019(self):
+        '''Defining a non existing option'''
+    
+        class Simple(OptionMatcher):
+            
+            @optmatcher(options='k')
+            def handleA(self, o):
+                return True
+            
+        self.assertRaiseArg(OptionMatcherException, 
+                            'k is not a known variable',
+                            Simple().process, [None])
+
+    def test3020(self):
+        '''Defining a non existing flag'''
+    
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, o):
+                return False
+
+            @optmatcher(flags='k')
+            def handleB(self, o):
+                return True
+            
+        self.failUnless(Simple().process([None, '-k', 'o']))
+
     def test3021(self):
+        '''Defining a non existing flag with as'''
+    
+        class Simple(OptionMatcher):
+            
+            @optmatcher(flags='k as o')
+            def handleB(self): 
+                pass
+            
+        self.assertRaiseArg(OptionMatcherException, 
+                            'k is not a known variable',
+                            Simple().process, [None])
+
+    def test3022(self):
+        '''Defining a non existing flag with as, even if equal'''
+    
+        class Simple(OptionMatcher):
+            
+            @optmatcher(flags='k as k')
+            def handleB(self): 
+                pass
+            
+        self.assertRaiseArg(OptionMatcherException, 
+                            'k is not a known variable',
+                            Simple().process, [None])
+
+    def test3023(self):
+        '''Non existing flag are required'''
+    
+        class Simple(OptionMatcher):
+            
+            @optmatcher(flags='k')
+            def handleB(self):
+                pass
+            
+        self.assertRaiseArg(UsageException, 'Missing required flag k',
+                            Simple().process, [None])
+        
+    def test3031(self):
         '''API test: defining all via decorator'''
     
         class Simple(OptionMatcher):
             
             @optmatcher(flags='o,v', options='w', prefixes='d as D',
                         intOptions='i', floatOptions='f', 
-                        parameters='par as class', priority=1)
+                        renamePars='par as class', priority=1)
             def handleA(self, o, v, w, d, i, f, par):
                 return o, v, w, d, i, f, par
         
@@ -1023,7 +1150,7 @@ class OptMatcherTestsOnDecoration(Tests):
             
             @optmatcher(flags='o,v', options='w', prefixes='d as D',
                         intOptions='i', floatOptions='f', 
-                        parameters='par as class', priority=1)
+                        renamePars='par as class', priority=1)
             def handleA(self, o, v, w, d, i, f, par):
                 return self.m, o, v, w, d, i, f, par
 
@@ -1126,7 +1253,7 @@ class OptMatcherTestsOnErrorMessages(Tests):
     
         class Simple(OptionMatcher):
             
-            @optmatcher(parameters='c as class')
+            @optmatcher(renamePars='c as class')
             def handleA(self, c): pass
 
         self.assertRaiseArg(UsageException,

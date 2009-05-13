@@ -118,10 +118,10 @@ class Decoration(object):
         #  of the decorator parameters
         
         def parser(flags=None, options=None, intOptions=None,
-                   floatOptions=None, prefixes=None, parameters=None,
+                   floatOptions=None, prefixes=None, renamePars=None,
                    priority=None):
             return (flags, options, intOptions, floatOptions, prefixes,
-                    parameters), priority
+                    renamePars), priority
             
         try:
             return parser(*function.optmatcher)
@@ -286,6 +286,7 @@ class OptMatcherInfo(object):
         self.converts = {}   #maps from index (option) to convert function
         self.pars = {}       #maps parameter index to parameter name
         self.lastArg = 1     #the last available variable index plus 1
+        self.orphanFlags = 0 #flags without associated variable
         #Note that the index number associated to the first parameter
         # is 1, not zero. This simplifies later many checks
 
@@ -330,30 +331,61 @@ class OptMatcherInfo(object):
     def _initializeParametersFromDecorator(self, vars, flags, options,
                                            intOptions, floatOptions, prefixes,
                                            parameters):
+
+        def getDecorationDefinitions(decoration):
+            #Returns the definitions associated to a given decorator argument
+            #The returned value maps names to 'as' values, if present, or to
+            #  themselves, otherwise. 
+            ret = {}
+            if decoration:
+                try:
+                    defs = self.DECORATOR_SPLIT.split(decoration.strip())
+                except:
+                    raise OptionMatcherException('Invalid definition')
+                for d in defs:
+                    if d:
+                        match = self.DECORATOR_ASSIGN.match(d)
+                        if match:
+                            ret[match.group(1)] = match.group(2)
+                        else:
+                            ret[d] = None
+            return ret
+    
         #Initializes the metadata from the decorator information       
         ints, floats, used = {}, {}, []
-        for att, group  in [(self.flags, flags),
-                            (self.options, options),
-                            (self.prefixes, prefixes),
-                            (self.pars, parameters),
-                            (ints, intOptions),
-                            (floats, floatOptions)]:
+        for att, group in [(self.flags, flags),
+                           (self.options, options),
+                           (self.prefixes, prefixes),
+                           (self.pars, parameters),
+                           (ints, intOptions),
+                           (floats, floatOptions)]:
             #in the following loop, n defines each parameter name given
             #in the decorator for each group (flags, options, etc), while
             #v defines the public name (n as v)
-            for n, v in self._getDecorationDefinitions(group).items():
+            for n, v in getDecorationDefinitions(group).items():
                 #get the index of the var, raising an error if not found
-                # or already used
+                # or already used                
+                if att is self.pars and (not v or n == v):
+                    raise OptionMatcherException(
+                                            'Invalid renamePar ' + n)
                 try:
                     index = vars.index(n)
                 except ValueError:
+                    if att is self.flags and not v:
+                        #a flag could be not existing as argument, as
+                        # the flag value is not really interesting. In this
+                        # case, makes no sense defining it as 'var as name'
+                        self.orphanFlags -= 1
+                        att[n] = self.orphanFlags
+                        continue
+                    
                     raise OptionMatcherException(n + 
                                   ' is not a known variable')
                 if index in used:
                     raise OptionMatcherException(n + 
                                   ' is defined multiple times')
                 used.append(index)
-                att[v] = 1 + index
+                att[v or n] = 1 + index
         #all groups are created as maps (name -> variable index), but for
         #params the name is not that important, and we store it in the
         #oppossite way
@@ -378,19 +410,15 @@ class OptMatcherInfo(object):
         '''
         ret = {}
         for k, v in self._getOptionsAndDefaults(self.flags, self).items():
-            ret[k] = v != self
+            ret[k] = v == self
         return ret
                                         
-    def getOptions(self, defnull):
-        '''Returns the defined options as a tuple.
-           The first element is a map from tuples to default values -or to
-              defnull is no default provided-. In this map, the keys 
-              are tuples with all the aliases for a given flag
-           The second element is True if it supports any given option, 
-              that is, ** kwargs 
+    def getOptions(self, defnull=None):
+        '''Returns the defined options as a map from tuples to default values 
+        -or to defnull is no default provided-. In this map, the keys 
+        are tuples with all the aliases for a given flag
         '''        
-        return (self._getOptionsAndDefaults(self.options, defnull),
-                self.kwargs != False)
+        return self._getOptionsAndDefaults(self.options, defnull)
                                         
     def getPrefixes(self):
         '''Returns the defined options as a list of tuples
@@ -398,11 +426,12 @@ class OptMatcherInfo(object):
         '''        
         return self._getOptionsAndDefaults(self.prefixes, self).keys()
     
-    def getParameters(self, defnull):
+    def getParameters(self, defnull=None):
         '''Returns the defined parameters as a tuple
            The first element of the tuple is a list of tuples, each
               providing the name of the parameter, and its default value
-              This default value is defnull is not provided
+              This default value is defnull if not provided. If defnull is 
+              not specified, this is not included -so result is not a tuple-
            The second element is True if any additional parameters are 
               also supported (varargs is defined)
         '''
@@ -412,7 +441,10 @@ class OptMatcherInfo(object):
                 name = self.pars[i]
             except KeyError:
                 continue
-            ret.append((name, self.defaults.get(i, defnull)))
+            if defnull == None:
+                ret.append(name)
+            else:
+                ret.append((name, self.defaults.get(i, defnull)))
         return ret, self.vararg > 0
                                             
     def setAliases(self, aliases):
@@ -425,7 +457,8 @@ class OptMatcherInfo(object):
             #Defines b as an alias in bSet of a, if a is defined in aSet
             #As a result, any option defined as 'a' will be used if the 
             #      user specifies the 'b'
-            if a in aSet:
+            ret = a in aSet
+            if ret:
                 if b in bSet:
                     raise OptionMatcherException(
                         'Bad alias:' + a + '/' + b + ' in ' + self._describe())
@@ -435,6 +468,7 @@ class OptMatcherInfo(object):
                         each[b] = each[a]
                     except KeyError:
                         pass
+            return ret
             
         for s, l in aliases.items():
             if self.getoptmode:
@@ -445,7 +479,8 @@ class OptMatcherInfo(object):
                     s, l = l, s
                 if len(s) > 1 or len(l) == 1:
                     raise OptionMatcherException('Bad alias:' + s + '/' + l)
-                setAlias(l, s, self.defs, self.shortDefs)
+                if setAlias(l, s, self.defs, self.shortDefs):
+                    continue
             elif l in self.defs:
                 #if alias 'l' is already known, we try setting from s->l
                 s, l = l, s
@@ -470,6 +505,9 @@ class OptMatcherInfo(object):
             name = 'function '
         return name + self.func.__name__
     
+    def getDoc(self):
+        return self.func.__doc__
+    
     def _getOptionsAndDefaults(self, group, defaultValue):
         #Returns from the given group (flags/options/prefixes), a map 
         #   from tuples to default values
@@ -478,28 +516,10 @@ class OptMatcherInfo(object):
         for name, index in group.items():
             options.setdefault(index, []).append(name)
         for index, aliases in options.items():
+            aliases.sort()
             ret[tuple(aliases)] = self.defaults.get(index, defaultValue)
         return ret
                                             
-    def _getDecorationDefinitions(self, decoration):
-        #Returns the definitions associated to a given decorator argument
-        #The returned value maps names to 'as' values, if present, or to
-        #  themselves, otherwise
-        ret = {}
-        if decoration:
-            try:
-                defs = self.DECORATOR_SPLIT.split(decoration.strip())
-            except:
-                raise OptionMatcherException('Invalid definition')
-            for d in defs:
-                if d:
-                    match = self.DECORATOR_ASSIGN.match(d)
-                    if match:
-                        ret[match.group(1)] = match.group(2)
-                    else:
-                        ret[d] = d
-        return ret
-
     def _getParametersInfo(self, f):
         #returns a tuple with the parameters information
         #This information includes: the list of variables, if it supports
@@ -509,9 +529,9 @@ class OptMatcherInfo(object):
         kwargs = flags & 0x0008
         #dismiss self, *args and **kwargs as var names
         if varargs:
-            varnames = varnames[:-1]
+            varnames = varnames[: - 1]
         if kwargs:
-            varnames = varnames[:-1]
+            varnames = varnames[: - 1]
         if hasattr(f, 'im_self'):
             varnames = varnames[1:]
         return list(varnames), varargs, kwargs
@@ -540,7 +560,13 @@ class OptMatcherHandler(OptMatcherInfo):
     def checkInvokable(self):
         '''Verifies whether the underlying function can be invoked.'''
         #It can, if all the options/parameters are specified or have defaults
-        return self._getInvokingPars()[0]
+        errorReason = self._getInvokingPars()[0]
+        if errorReason:
+            return errorReason
+        #Still must be checked the 'not existing' flags' variables
+        for each in range(self.orphanFlags, 0):
+            if not each in self.provided:
+                return 'Missing required ' + self.getIndexName(each)
         
     def _getInvokingPars(self):
         #Returns the parameters required to invoke the underlying function.
@@ -690,13 +716,45 @@ class OptMatcherHandler(OptMatcherInfo):
         return None, None
                             
         
-class OptionMatcherException(Exception):
-    '''Exception raised when a problem happens during handling setup'''
-
+class UsageFormatter(object):
+    def __init__(self, pars, options, common, alternatives):
+        self.pars = pars
+        self.options = options
+        self.common = common
+        self.alternatives = alternatives
         
-class UsageException(OptionMatcherException):
-    '''Exception raised while handling an argument'''
-            
+    def getUsageString(self):
+        ret = []
+        if self.options:
+            ret.append('[options]')
+        ret.extend(self.pars[0])
+        if self.pars[1]:
+            ret.append('...')
+        return ' '.join(ret)
+    
+    def getOptionsStrings(self):
+        return [(' '.join(aliases), doc) for aliases, doc in self.options]
+    
+    def getCommonOptionsString(self):
+        if self._simpleCase():
+            return []
+        return ' '.join(self.common[0])
+    
+    def getAlternatives(self):
+        ret = []
+        for ((options, pars), doc) in self.alternatives:
+            if self._simpleCase():
+                allOptions = options + self.common[0]
+                allOptions.sort()
+            else:
+                allOptions = ['[common_options]'] + options
+            ret.append((allOptions + self.common[1] + pars, doc))
+        return ret
+    
+    def _simpleCase(self):
+        return not self.common[0] or len(self.alternatives) <= 1
+        
+
 
 class OptionMatcher (object):
     ''' Class handling command line arguments by matching method parameters.
@@ -704,7 +762,7 @@ class OptionMatcher (object):
     '''
     
     def __init__(self, matchers=None, commonMatcher=None, aliases=None,
-                 option='--', delimiter='='):
+                 usageInfo=None, option='--', delimiter='='):
         '''
         Param matchers define the methods/functions to handle the command 
             line, in specific order. 
@@ -727,6 +785,7 @@ class OptionMatcher (object):
         self.setMatchers(matchers, commonMatcher)
         self.setAliases(aliases)
         self.setMode(option, delimiter)
+        self.setUsageInfo(usageInfo)
                
     def setMatchers(self, matchers, commonMatcher=None):
         '''Sets the matchers and the common matcher. See __init__'''
@@ -736,6 +795,10 @@ class OptionMatcher (object):
     def setAliases(self, aliases):
         '''Sets the aliases. See __init__'''
         self._aliases = aliases
+    
+    def setUsageInfo(self, usageInfo):
+        '''Sets the usage information for each option. See __init__'''
+        self._usageInfo = usageInfo
     
     def setMode(self, option, delimiter):
         '''Sets the working mode. See __init__'''
@@ -747,8 +810,7 @@ class OptionMatcher (object):
         The list is sorted by priority, then alphabetically
         '''
         return Decoration.getDecoratedMethods(instance or self, False)
-        
-                
+                        
     def getCommonMatcherMethod(self, instance=None):
         '''Returns the common matcher method in the given instance, if any.
         If there were multiple such methods, the method with highest 
@@ -786,8 +848,126 @@ class OptionMatcher (object):
             commandLine.reset()
             if commonHandler:
                 commonHandler.reset()
-        raise UsageException (highestProblem[1])        
+        raise UsageException (highestProblem[1])       
     
+    def getUsage(self):
+        
+        matcherHandlers, commonHandler = self._createHandlers()        
+                
+        paramsUsage = self._getParsSummary(matcherHandlers, commonHandler)
+        options = self._getOptions(matcherHandlers, commonHandler)
+        
+        if commonHandler:
+            common = self._getHandlerInfo(commonHandler)
+        else:
+            common = [], []
+        alternatives = [(self._getHandlerInfo(h),
+                         h.getDoc())for h in matcherHandlers]
+        
+        return UsageFormatter(paramsUsage, options, common, alternatives)
+                               
+            
+    def _getParsSummary(self, matcherHandlers, commonHandler):
+        args, vararg = [], False
+        #we get the parameters required by all the handlers.
+        #By default, they are named arg1, arg2, etc
+        #if all handlers define one such parameter commonly, we name it so 
+        for each in matcherHandlers:
+            pars, jockey = each.getParameters()
+            vararg = vararg or jockey
+            for l, (a, p) in enumerate(zip(args, pars)):
+                if a != p:
+                    args[l] = 'arg%d' % (l + 1)
+            args += pars[len(args):]
+        if commonHandler:
+            pars, jockey = commonHandler.getParameters()
+            vararg = vararg or jockey
+            args = pars + args
+        return args, vararg
+    
+    def _getHandlerInfo(self, handler):
+        
+        def validDefault(v):
+            for each in str, int, float:
+                if isinstance(v, each):
+                    return True
+                
+        ret, parametersRet = [], []
+        for flagAliases, required in handler.getFlags().items():
+            format = (required and '%s') or '[%s]'
+            ret.append(format % self._flagAsStr(flagAliases[0]))
+        for optionAliases, d in handler.getOptions(self).items():
+            if d == self: #no default value
+                ret.append(self._optionAsStr(optionAliases[0]))
+            else:
+                d = validDefault(d) and str(d)
+                ret.append('[' + self._optionAsStr(optionAliases[0], d) + ']')
+        for prefixes in handler.getPrefixes():
+            ret.append('[' + self._prefixAsStr(prefixes[0]) + ']')
+        pars, varargs = handler.getParameters(self) 
+        for par, d in pars:
+            if d == self: #no default value
+                parametersRet.append(par)
+            elif validDefault(d):
+                parametersRet.append('[' + par + '=' + str(d) + ']')
+            else:
+                parametersRet.append('[' + par + ']')
+        return ret, parametersRet
+            
+    def _getOptions(self, matcherHandlers, commonHandler):
+        #Return all the options, as a sorted list of tuples
+        # (aliases, associated documentation)
+        
+        def compareIgnoreCase(a, b):
+            A, B = a.lower(), b.lower()
+            return (A < B and - 1) or (A > B and 1) or 0
+                    
+        def getDocumentation(aliases):
+            '''Returns the doc provided for any of the given aliases'''
+            if self._usageInfo:
+                for a in aliases:
+                    try:
+                        return self._usageInfo[a]
+                    except KeyError:
+                        pass
+            
+        def harmonize(where, what, repr):
+            #inserts each tuple of what in where, which is a map
+            # from the first element of each tuple to the tuple
+            for each in what:
+                key = each[0]
+                if not key in where:
+                    where[key] = ([repr(e) for e in each],
+                                  getDocumentation(each))
+                    
+        all = {}
+        getoptmode = self._option == '--'
+        handlers = ((commonHandler and [commonHandler]) or []) + matcherHandlers 
+        for h in handlers:
+            harmonize(all, h.getFlags().keys(), self._flagAsStr)
+            harmonize(all, h.getOptions().keys(), self._optionAsStr)
+            harmonize(all, h.getPrefixes(), self._prefixAsStr)
+        keys = all.keys()
+        keys.sort(compareIgnoreCase)
+        return [all[k] for k in keys]
+    
+    def _optionStr(self, what, assoc=''):
+        '''Representation of an option'''
+        if self._option == '--' and len(what) == 1:
+            return '-' + what + assoc
+        if assoc:
+            return self._option + what + self._delimiter + assoc
+        return self._option + what
+    
+    def _flagAsStr(self, what):
+        return self._optionStr(what, '')
+        
+    def _optionAsStr(self, what, defValue=None):
+        return self._optionStr(what, defValue or '@')
+        
+    def _prefixAsStr(self, what):
+        return self._optionStr(what, '+')
+        
     def _createHandlers(self):
         #Returns all the required handlers, as a tuple
         #the first element is the list of matchers, and the second, the
@@ -820,18 +1000,26 @@ class OptionMatcher (object):
                 commandHandler.checkInvokable())
         
 
+class OptionMatcherException(Exception):
+    '''Exception raised when a problem happens during handling setup'''
+
+        
+class UsageException(OptionMatcherException):
+    '''Exception raised while handling an argument'''
+    
+    
 def optmatcher(flags=None, options=None, intOptions=None,
-               floatOptions=None, prefixes=None, parameters=None,
+               floatOptions=None, prefixes=None, renamePars=None,
                priority=None):
-    '''Decorator defining a function/method as optmatcher choice'''
+    '''Decorator defining a function / method as optmatcher choice'''
     
     return Decoration.decorate(False, flags, options, intOptions,
-                                floatOptions, prefixes, parameters, priority)
+                                floatOptions, prefixes, renamePars, priority)
 
 def optcommon(flags=None, options=None, intOptions=None,
-              floatOptions=None, prefixes=None, parameters=None,
+              floatOptions=None, prefixes=None, renamePars=None,
               priority=None):
-    '''Decorator defining a function/method as optcommon choice'''
+    '''Decorator defining a function / method as optcommon choice'''
     
     return Decoration.decorate(True, flags, options, intOptions,
-                                floatOptions, prefixes, parameters, priority)
+                                floatOptions, prefixes, renamePars, priority)
