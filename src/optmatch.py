@@ -143,6 +143,32 @@ class Decoration(object):
         return [f for p, f in functionsAndPriorities]    
 
 
+class UsageMode(object):
+    '''
+    Available instance attributes:
+       option    : the option prefix ('--')
+       delimiter : the string to be used as separator between
+                   names and values
+       getoptMode: True if getopt mode (short is '-', long options as '--')
+    '''
+    
+    def __init__(self, option, delimiter):
+        self.argsHelp, self.varNames = None, None
+        self.set(option, delimiter)
+
+    def set(self, option=None, delimiter=None, argsHelp=None, varNames=None):
+        self.option = option or self.option
+        self.delimiter = delimiter or self.delimiter
+        self.argsHelp = argsHelp or self.argsHelp
+        self.varNames = varNames or self.varNames
+        self.getoptMode = self.option == '--'
+        
+    def getOptionPrefix(self, argument):
+        if self.getoptMode or len(argument) > 1:
+            return self.option
+        return '-'
+
+
 class CommandLine(object):
     '''Class to handle the Command Line arguments
     
@@ -159,21 +185,15 @@ class CommandLine(object):
        isShort: Bool, true if the current arg is a short option
     ''' 
        
-    def __init__(self, args, optionPrefix, delimiter, gnuMode):
+    def __init__(self, args, mode, gnuMode):
         '''
         param args: the list of arguments to handle (first is dismissed)
-        param optionPrefix: the prefix for the options. If '--', it will
-              be enabled the usage of short options with '-'.
-              Must be escaped for RE purposes
-        param delimiter: the string to be used as separator between
-              names and values. Must be escaped for RE purposes
-        param gnuMode: if true, after a non option argument, all remaining
-              arguments will be treated as non options 
         '''
         #reShort is hardcoded to '-' if the option is defined as '--'
-        self.reShort = (optionPrefix == '--') and re.compile('-(.+)$')
-        self.reOption = re.compile(optionPrefix + '(.+)$')
-        self.reSeparation = re.compile('(.+?)' + delimiter + '(.+)$')
+        self.reShort = mode.getoptMode and re.compile('-(.+)$')
+        #note than text calls imply that option or delimiter are re-safe!
+        self.reOption = re.compile(mode.option + '(.+)$')
+        self.reSeparation = re.compile('(.+?)' + mode.delimiter + '(.+)$')
         self.args = args
         self.gnuMode = gnuMode
         self.canBeOption = True  
@@ -242,6 +262,86 @@ class CommandLine(object):
         return self.option
 
 
+class ArgumentInfo(object):
+    '''Class to represent the arguments, for usage matters'''
+    
+    def __init__(self, name, mode):
+        self.name = name
+        self.mode = mode
+        self.defaultProvided = False
+        self.defaultValue = None
+        
+    def __str__(self):
+        if self.defaultProvided:
+            format = '[%s%s%s%s]'
+            default = self.getDefault()
+        else:
+            format = '%s%s%s%s'
+            default = ''
+        return format % (self._getPrefix(), self.name,
+                         self._getSuffix(), default)
+
+    def setDefaultValue(self, defaultValue):
+        self.defaultProvided = True
+        self.defaultValue = defaultValue
+        
+    def getDefault(self):
+        if isinstance(self.defaultValue, str) or \
+           isinstance(self.defaultValue, int) or \
+           isinstance(self.defaultValue, float) :
+            return '(' + str(self.defaultValue) + ')'
+        return ''
+
+    def _getPrefix(self, name=None):
+        return ''
+        
+    def _getSuffix(self):
+        return ''
+        
+
+class FlagInfo(ArgumentInfo):
+    '''Specialization of the ArgumentInfo class to handle flags'''
+    
+    def __init__(self, aliases, mode):
+        aliases.sort(key=len)
+        ArgumentInfo.__init__(self, aliases[0], mode)
+        self.aliases = aliases
+        
+    def aliasesAsStr(self):
+        return ', '.join(['%s%s%s' % (self._getPrefix(i),
+                                    i,
+                                    self._getSuffix()) for i in self.aliases])
+
+    def getDoc(self):
+        '''Returns the doc provided for any of the given aliases'''
+        if self.mode.argsHelp:
+            for a in self.aliases:
+                try:
+                    return self.mode.argsHelp[a]
+                except KeyError:
+                    pass
+            
+    def _getPrefix(self, name=None):
+        return self.mode.getOptionPrefix(name or self.name)
+    
+    
+class OptionInfo(FlagInfo):    
+
+    def _getSuffix(self):
+        
+        def getVariableName():
+            if self.mode.varNames:
+                for alias in self.aliases:
+                    try:
+                        return self.mode.varNames[alias]
+                    except KeyError:
+                        pass
+            return self.aliases[-1]
+                                     
+        return self.mode.delimiter + getVariableName().upper()
+    
+            
+
 class OptMatcherInfo(object):
     '''Internal class, holds the information associated to each matcher'''
         
@@ -250,17 +350,14 @@ class OptMatcherInfo(object):
     FLAG_PATTERN = re.compile('(.+)' + 
                               '(Flag|Option|OptionInt|OptionFloat|Prefix)$')
 
-    def __init__(self, func, getoptmode):
-        #getoptmode is a boolean parameter that specifies whether
-        #     to use getoptmode or not. In getoptmode, there is specific
-        #     support for short/long options; in addition, kwargs
-        #     parameters cannot be supported.
-        self._initializeParametersInformation(func, getoptmode)
+    def __init__(self, func, mode):
+        self.mode = mode
+        self._initializeParametersInformation(func)
         
         #With getoptmode, in addition to the normal definitions, users
         # can specify short options, stored in sortedDefs 
         self.defs = set()       #definitions (flags/options/prefixes)
-        if getoptmode:
+        if mode.getoptMode:
             self.shortDefs = set()    
         else:
             self.shortDefs = self.defs
@@ -278,7 +375,7 @@ class OptMatcherInfo(object):
                                                  '" in ' + self._describe())
                 defSet.add(name)
 
-    def _initializeParametersInformation(self, func, getoptmode):   
+    def _initializeParametersInformation(self, func):   
         #Initializes all parameter information associated to the function: 
         self.flags = {}      #maps flag name to parameter index
         self.options = {}    #maps option name to parameter index
@@ -291,11 +388,10 @@ class OptMatcherInfo(object):
         # is 1, not zero. This simplifies later many checks
 
         self.func = func
-        self.getoptmode = getoptmode
-
+        
         vars, self.vararg, kwarg = self._getParametersInfo(func)
         #if kwargs are supported, kwargs is used as a dictinary
-        self.kwargs = kwarg and not getoptmode and {}
+        self.kwargs = kwarg and not self.mode.getoptMode and {}
         
         decorationInfo, priority = Decoration.parseDecoration(func)
         if decorationInfo and filter(None, decorationInfo): 
@@ -333,9 +429,8 @@ class OptMatcherInfo(object):
                                            parameters):
 
         def getDecorationDefinitions(decoration):
-            #Returns the definitions associated to a given decorator argument
             #The returned value maps names to 'as' values, if present, or to
-            #  themselves, otherwise. 
+            #  themselves, otherwise, for a given decoration argument
             ret = {}
             if decoration:
                 try:
@@ -351,7 +446,6 @@ class OptMatcherInfo(object):
                             ret[d] = None
             return ret
     
-        #Initializes the metadata from the decorator information       
         ints, floats, used = {}, {}, []
         for att, group in [(self.flags, flags),
                            (self.options, options),
@@ -363,11 +457,9 @@ class OptMatcherInfo(object):
             #in the decorator for each group (flags, options, etc), while
             #v defines the public name (n as v)
             for n, v in getDecorationDefinitions(group).items():
-                #get the index of the var, raising an error if not found
-                # or already used                
+                #get the index of the var: is an error if not found or reused
                 if att is self.pars and (not v or n == v):
-                    raise OptionMatcherException(
-                                            'Invalid renamePar ' + n)
+                    raise OptionMatcherException('Invalid renamePar ' + n)
                 try:
                     index = vars.index(n)
                 except ValueError:
@@ -377,23 +469,18 @@ class OptMatcherInfo(object):
                         # case, makes no sense defining it as 'var as name'
                         self.orphanFlags -= 1
                         att[n] = self.orphanFlags
-                        continue
-                    
-                    raise OptionMatcherException(n + 
-                                  ' is not a known variable')
+                        continue                    
+                    raise OptionMatcherException('Invalid argument: ' + n)
                 if index in used:
-                    raise OptionMatcherException(n + 
-                                  ' is defined multiple times')
+                    raise OptionMatcherException(
+                                    'Invalid argument redefinition: ' + n)
                 used.append(index)
                 att[v or n] = 1 + index
         #all groups are created as maps (name -> variable index), but for
-        #params the name is not that important, and we store it in the
-        #oppossite way
+        #params we invert the map, as the index is the important information
         self.pars = dict([(a, b) for b, a in self.pars.items()])
-        #the decorators allow define the parameters to change their known
-        #names, for doc purposes, but all function parameters that are not
-        #included as flags/options/prefixes are definitely considered 
-        #parameters
+        #all function parameters that are not included as flags/options/
+        #prefixes are definitely considered parameters
         self.pars.update(dict([(i + 1, v) for i, v in enumerate(vars) 
                                           if i not in used]))
         #intOptions and floatOptions are options with additional checks:
@@ -404,29 +491,16 @@ class OptMatcherInfo(object):
         self.lastArg = len(vars) + 1
             
     def getFlags(self):
-        '''Returns the defined flags as a map from tuples to 'required'
-           The keys are tuples with all the aliases for a given flag
-           The value is whether the flag is required or not
-        '''
-        ret = {}
-        for k, v in self._getOptionsAndDefaults(self.flags, self).items():
-            ret[k] = v == self
-        return ret
+        #Returns the defined flags. See _getOptionsAndDefaults 
+        return self._getOptionsAndDefaults(self.flags, FlagInfo)
                                         
-    def getOptions(self, defnull=None):
-        '''Returns the defined options as a map from tuples to default values 
-        -or to defnull is no default provided-. In this map, the keys 
-        are tuples with all the aliases for a given flag
-        '''        
-        return self._getOptionsAndDefaults(self.options, defnull)
+    def getOptions(self):
+        #Returns the defined options and prefixes. See _getOptionsAndDefaults 
+        use = self.options.copy()
+        use.update(self.prefixes)
+        return self._getOptionsAndDefaults(use, OptionInfo)
                                         
-    def getPrefixes(self):
-        '''Returns the defined options as a list of tuples
-           Each tuples contains all the aliases for a given prefix
-        '''        
-        return self._getOptionsAndDefaults(self.prefixes, self).keys()
-    
-    def getParameters(self, defnull=None):
+    def getParameters(self):
         '''Returns the defined parameters as a tuple
            The first element of the tuple is a list of tuples, each
               providing the name of the parameter, and its default value
@@ -438,13 +512,14 @@ class OptMatcherInfo(object):
         ret = []
         for i in range(1, self.lastArg):
             try:
-                name = self.pars[i]
+                info = ArgumentInfo(self.pars[i], self.mode)
             except KeyError:
                 continue
-            if defnull == None:
-                ret.append(name)
-            else:
-                ret.append((name, self.defaults.get(i, defnull)))
+            try:
+                info.setDefaultValue(self.defaults[i])
+            except KeyError:
+                pass
+            ret.append(info)
         return ret, self.vararg > 0
                                             
     def setAliases(self, aliases):
@@ -471,7 +546,7 @@ class OptMatcherInfo(object):
             return ret
             
         for s, l in aliases.items():
-            if self.getoptmode:
+            if self.mode.getoptMode:
                 #In getoptmode, aliases must map short and long options, 
                 #   that is, options with 1 character and options with more 
                 #   than 1 character
@@ -508,16 +583,17 @@ class OptMatcherInfo(object):
     def getDoc(self):
         return self.func.__doc__
     
-    def _getOptionsAndDefaults(self, group, defaultValue):
-        #Returns from the given group (flags/options/prefixes), a map 
-        #   from tuples to default values
-        # The keys are tuples with all the aliases for a given option
-        ret, options = {}, {}
+    def _getOptionsAndDefaults(self, group, constructor):
+        ret, options = [] , {}
         for name, index in group.items():
             options.setdefault(index, []).append(name)
         for index, aliases in options.items():
-            aliases.sort()
-            ret[tuple(aliases)] = self.defaults.get(index, defaultValue)
+            this = constructor(aliases, self.mode)
+            try:
+                this.setDefaultValue(self.defaults[index])
+            except KeyError:
+                pass
+            ret.append(this)
         return ret
                                             
     def _getParametersInfo(self, f):
@@ -529,9 +605,9 @@ class OptMatcherInfo(object):
         kwargs = flags & 0x0008
         #dismiss self, *args and **kwargs as var names
         if varargs:
-            varnames = varnames[: - 1]
+            varnames = varnames[:-1]
         if kwargs:
-            varnames = varnames[: - 1]
+            varnames = varnames[:-1]
         if hasattr(f, 'im_self'):
             varnames = varnames[1:]
         return list(varnames), varargs, kwargs
@@ -542,8 +618,8 @@ class OptMatcherHandler(OptMatcherInfo):
     It is an OptMatcherInfo extended with operations to handle arguments
     ''' 
         
-    def __init__(self, func, getoptmode):
-        OptMatcherInfo.__init__(self, func, getoptmode)
+    def __init__(self, func, mode):
+        OptMatcherInfo.__init__(self, func, mode)
         self.reset()
         
     def reset(self):
@@ -635,7 +711,7 @@ class OptMatcherHandler(OptMatcherInfo):
             if prefix:
                 if not name:
                     #perhaps is given as -D=value(bad) or separate (getoptmode)
-                    if cmd.split or not self.getoptmode or cmd.setArgHandled():
+                    if cmd.split or not self.mode.getoptMode or cmd.setArgHandled():
                         raise UsageException(
                             'Incorrect prefix usage on argument ' + cmd.arg)
                     #note that cmd.value is the value of next argument now
@@ -686,7 +762,7 @@ class OptMatcherHandler(OptMatcherInfo):
             else:
                 #under getoptmode, this is still valid if the value is
                 #provided as a separate argument (no option, no split)                
-                if not self.getoptmode or cmd.setArgHandled() or cmd.split:
+                if not self.mode.getoptMode or cmd.setArgHandled() or cmd.split:
                     raise UsageException('Incorrect option ' + name)
                 value = cmd.arg
             #If a conversion is needed (to integer/float), fo it now
@@ -717,52 +793,150 @@ class OptMatcherHandler(OptMatcherInfo):
                             
         
 class UsageFormatter(object):
-    def __init__(self, pars, options, common, alternatives):
-        self.pars = pars
-        self.options = options
-        self.common = common
-        self.alternatives = alternatives
+    
+    def __init__(self, handlers, common, mode):
+
+        self.mode = mode
+        self.handlers = handlers
+        self.common = common        
+        self.content = []
+        self.reset()
         
-    def getUsageString(self):
-        ret = []
-        if self.options:
-            ret.append('[options]')
-        ret.extend(self.pars[0])
-        if self.pars[1]:
-            ret.append('...')
-        return ' '.join(ret)
+    def getAllOptions(self):
+
+        def compare(a, b):
+            noflag = isinstance(a, OptionInfo)
+            if noflag != isinstance(b, OptionInfo):
+                return (noflag and 1) or - 1
+            A = a.name.lower()    
+            B = b.name.lower()
+            return (A < B and - 1) or (A > B and 1) or 0
+                    
+        handlers = ((self.common and [self.common]) or []) + self.handlers
+        return self._getOptions(handlers, compare)
+
+    def getOptions(self, alternative, includeCommon):
+
+        def compare(a, b):
+            if a.defaultProvided != b.defaultProvided:
+                return (a.defaultProvided and - 1) or 1
+            A = a.name.lower()    
+            B = b.name.lower()
+            return (A < B and - 1) or (A > B and 1) or 0
+                    
+        handlers = self._getHandlers(alternative, includeCommon)
+        return self._getOptions(handlers, compare)
+
+    def getCommonOptions(self):
+        return self.getOptions(-1, True)
     
-    def getOptionsStrings(self):
-        return [(' '.join(aliases), doc) for aliases, doc in self.options]
-    
-    def getCommonOptionsString(self):
-        if self._simpleCase():
-            return []
-        return ' '.join(self.common[0])
-    
+    def _getOptions(self, handlers, compare):
+
+        all = {}
+        for each in handlers:
+            for option in each.getFlags() + each.getOptions():
+                if not option.name in all:
+                    all[option.name] = option
+        ret = all.values()
+        ret.sort(compare)
+        return ret
+
     def getAlternatives(self):
-        ret = []
-        for ((options, pars), doc) in self.alternatives:
-            if self._simpleCase():
-                allOptions = options + self.common[0]
-                allOptions.sort()
-            else:
-                allOptions = ['[common_options]'] + options
-            ret.append((allOptions + self.common[1] + pars, doc))
+        return len(self.handlers)
+    
+    def getParameters(self, alternative):
+        handlers = self._getHandlers(alternative, True)
+        ret, varargs = [], False
+        for h in handlers:
+            pars, v = h.getParameters()
+            varargs = varargs or v
+            ret.extend(pars)
+        if varargs:
+            ret.append(ArgumentInfo('...', self.mode))
         return ret
     
-    def _simpleCase(self):
-        return not self.common[0] or len(self.alternatives) <= 1
+    def getAllParameters(self):
+        args, vararg = [], False
+        #we get the parameters required by all the handlers.
+        #By default, they are named arg1, arg2, etc
+        #if all handlers define one such parameter commonly, we name it so 
+        for each in self.handlers:
+            pars, jockey = each.getParameters()
+            vararg = vararg or jockey
+            for l, (a, p) in enumerate(zip(args, pars)):
+                if a != p.name:
+                    args[l] = 'arg%d' % (l + 1)
+            args += [p.name for p in pars[len(args):]]
+        if self.common:
+            pars, jockey = self.common.getParameters()
+            vararg = vararg or jockey
+            args = [p.name for p in pars] + args
+        if vararg:
+            args.append('...')
+        return args
+    
+    def reset(self, width=80, ident=2):
+        self.content = ['']
+        self.width = width
+        self.ident = ident
         
-
-
+    def getContent(self):
+        return '\n'.join(self.content)
+        
+    def addLine(self):
+        self.content.append('')
+        
+    def addLine(self, content):
+        self.addLine()
+        self.add(content)
+        
+    def add(self, content, position=0):
+        if isinstance(content, str):
+            content = content.split(' ')
+        current = self.content.pop()
+        if position:
+            newLineRequired = len(current) + 4 > position
+        else:
+            newLineRequired = len(current) > 0
+        if newLineRequired:
+            self.content.append(current)
+            current = ''
+        current += ' ' * (position - len(current))
+        position += self.ident
+        started = False
+        for each in content:
+            if started and (len(current) + len(each) >= self.width):
+                self.content.append(current)
+                current = ' ' * position
+                started = False
+            if each or started:
+                if started:
+                    current += ' '
+                current += each
+                started = True            
+        self.content.append(current.rstrip())
+                
+                
+    def _getHandlers(self, alternative, includeCommon):
+        ret = (alternative >= 0 and [self.handlers[alternative]]) or []
+        if includeCommon and self.common:
+            ret.insert(0, self.common)
+        return ret
+    
+        
+    def printHelp(self):
+        pass
+    
+    
+    
 class OptionMatcher (object):
     ''' Class handling command line arguments by matching method parameters.
     It supports naturally the handling of mutually exclusive options.
     '''
     
     def __init__(self, matchers=None, commonMatcher=None, aliases=None,
-                 usageInfo=None, option='--', delimiter='='):
+                 argsHelp=None, optionVarNames=None,
+                 option='--', delimiter='='):
         '''
         Param matchers define the methods/functions to handle the command 
             line, in specific order. 
@@ -782,10 +956,10 @@ class OptionMatcher (object):
         Param delimiter defines the character separating options' name 
             and value
         '''
+        self._mode = UsageMode(option, delimiter)
         self.setMatchers(matchers, commonMatcher)
         self.setAliases(aliases)
-        self.setMode(option, delimiter)
-        self.setUsageInfo(usageInfo)
+        self.setUsageInfo(argsHelp, optionVarNames)
                
     def setMatchers(self, matchers, commonMatcher=None):
         '''Sets the matchers and the common matcher. See __init__'''
@@ -796,14 +970,13 @@ class OptionMatcher (object):
         '''Sets the aliases. See __init__'''
         self._aliases = aliases
     
-    def setUsageInfo(self, usageInfo):
+    def setUsageInfo(self, argsHelp, optionVarNames):
         '''Sets the usage information for each option. See __init__'''
-        self._usageInfo = usageInfo
+        self._mode.set(argsHelp=argsHelp, varNames=optionVarNames)
     
     def setMode(self, option, delimiter):
         '''Sets the working mode. See __init__'''
-        self._option = option or self._option
-        self._delimiter = delimiter or self._delimiter
+        self._mode.set(option=option, delimiter=delimiter)
     
     def getMatcherMethods(self, instance=None):
         '''Returns a list with all the methods defined as optmatcher
@@ -821,13 +994,19 @@ class OptionMatcher (object):
             return all[0]
         return None 
                                                                          
+    def getUsage(self):
+        '''Returns an Usage object to handle the usage info'''
+        matcherHandlers, commonHandler = self._createHandlers()        
+        return UsageFormatter(matcherHandlers, commonHandler, self._mode)
+                               
+            
     def process(self, args, gnu=False):
         '''Processes the given command line arguments
         Param gnu determines gnu behaviour. Is True, no-option 
             arguments can be only specified latest
         '''
-        matcherHandlers, commonHandler = self._createHandlers()        
-        commandLine = CommandLine(args, self._option, self._delimiter, gnu)        
+        matcherHandlers, commonHandler = self._createHandlers()   
+        commandLine = CommandLine(args, self._mode, gnu)        
         highestProblem = None, 'Invalid command line input'
         
         #the method is simple: for each matcher, we verify if the arguments
@@ -850,124 +1029,6 @@ class OptionMatcher (object):
                 commonHandler.reset()
         raise UsageException (highestProblem[1])       
     
-    def getUsage(self):
-        
-        matcherHandlers, commonHandler = self._createHandlers()        
-                
-        paramsUsage = self._getParsSummary(matcherHandlers, commonHandler)
-        options = self._getOptions(matcherHandlers, commonHandler)
-        
-        if commonHandler:
-            common = self._getHandlerInfo(commonHandler)
-        else:
-            common = [], []
-        alternatives = [(self._getHandlerInfo(h),
-                         h.getDoc())for h in matcherHandlers]
-        
-        return UsageFormatter(paramsUsage, options, common, alternatives)
-                               
-            
-    def _getParsSummary(self, matcherHandlers, commonHandler):
-        args, vararg = [], False
-        #we get the parameters required by all the handlers.
-        #By default, they are named arg1, arg2, etc
-        #if all handlers define one such parameter commonly, we name it so 
-        for each in matcherHandlers:
-            pars, jockey = each.getParameters()
-            vararg = vararg or jockey
-            for l, (a, p) in enumerate(zip(args, pars)):
-                if a != p:
-                    args[l] = 'arg%d' % (l + 1)
-            args += pars[len(args):]
-        if commonHandler:
-            pars, jockey = commonHandler.getParameters()
-            vararg = vararg or jockey
-            args = pars + args
-        return args, vararg
-    
-    def _getHandlerInfo(self, handler):
-        
-        def validDefault(v):
-            for each in str, int, float:
-                if isinstance(v, each):
-                    return True
-                
-        ret, parametersRet = [], []
-        for flagAliases, required in handler.getFlags().items():
-            format = (required and '%s') or '[%s]'
-            ret.append(format % self._flagAsStr(flagAliases[0]))
-        for optionAliases, d in handler.getOptions(self).items():
-            if d == self: #no default value
-                ret.append(self._optionAsStr(optionAliases[0]))
-            else:
-                d = validDefault(d) and str(d)
-                ret.append('[' + self._optionAsStr(optionAliases[0], d) + ']')
-        for prefixes in handler.getPrefixes():
-            ret.append('[' + self._prefixAsStr(prefixes[0]) + ']')
-        pars, varargs = handler.getParameters(self) 
-        for par, d in pars:
-            if d == self: #no default value
-                parametersRet.append(par)
-            elif validDefault(d):
-                parametersRet.append('[' + par + '=' + str(d) + ']')
-            else:
-                parametersRet.append('[' + par + ']')
-        return ret, parametersRet
-            
-    def _getOptions(self, matcherHandlers, commonHandler):
-        #Return all the options, as a sorted list of tuples
-        # (aliases, associated documentation)
-        
-        def compareIgnoreCase(a, b):
-            A, B = a.lower(), b.lower()
-            return (A < B and - 1) or (A > B and 1) or 0
-                    
-        def getDocumentation(aliases):
-            '''Returns the doc provided for any of the given aliases'''
-            if self._usageInfo:
-                for a in aliases:
-                    try:
-                        return self._usageInfo[a]
-                    except KeyError:
-                        pass
-            
-        def harmonize(where, what, repr):
-            #inserts each tuple of what in where, which is a map
-            # from the first element of each tuple to the tuple
-            for each in what:
-                key = each[0]
-                if not key in where:
-                    where[key] = ([repr(e) for e in each],
-                                  getDocumentation(each))
-                    
-        all = {}
-        getoptmode = self._option == '--'
-        handlers = ((commonHandler and [commonHandler]) or []) + matcherHandlers 
-        for h in handlers:
-            harmonize(all, h.getFlags().keys(), self._flagAsStr)
-            harmonize(all, h.getOptions().keys(), self._optionAsStr)
-            harmonize(all, h.getPrefixes(), self._prefixAsStr)
-        keys = all.keys()
-        keys.sort(compareIgnoreCase)
-        return [all[k] for k in keys]
-    
-    def _optionStr(self, what, assoc=''):
-        '''Representation of an option'''
-        if self._option == '--' and len(what) == 1:
-            return '-' + what + assoc
-        if assoc:
-            return self._option + what + self._delimiter + assoc
-        return self._option + what
-    
-    def _flagAsStr(self, what):
-        return self._optionStr(what, '')
-        
-    def _optionAsStr(self, what, defValue=None):
-        return self._optionStr(what, defValue or '@')
-        
-    def _prefixAsStr(self, what):
-        return self._optionStr(what, '+')
-        
     def _createHandlers(self):
         #Returns all the required handlers, as a tuple
         #the first element is the list of matchers, and the second, the
@@ -975,7 +1036,7 @@ class OptionMatcher (object):
         def createHandle(function):
             if not function:
                 return None
-            ret = OptMatcherHandler(function, self._option == '--')
+            ret = OptMatcherHandler(function, self._mode)
             if self._aliases:
                 ret.setAliases(self._aliases)                
             return ret
