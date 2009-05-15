@@ -164,9 +164,14 @@ class UsageMode(object):
         self.getoptMode = self.option == '--'
         
     def getOptionPrefix(self, argument):
-        if self.getoptMode or len(argument) > 1:
+        if not self.getoptMode or len(argument) > 1:
             return self.option
         return '-'
+
+    def getDelimiter(self, argument):
+        if not self.getoptMode or len(argument) > 1:
+            return self.delimiter
+        return ' '
 
 
 class CommandLine(object):
@@ -295,7 +300,7 @@ class ArgumentInfo(object):
     def _getPrefix(self, name=None):
         return ''
         
-    def _getSuffix(self):
+    def _getSuffix(self, name=None):
         return ''
         
 
@@ -308,9 +313,10 @@ class FlagInfo(ArgumentInfo):
         self.aliases = aliases
         
     def aliasesAsStr(self):
-        return ', '.join(['%s%s%s' % (self._getPrefix(i),
-                                    i,
-                                    self._getSuffix()) for i in self.aliases])
+        aliases = ['%s%s%s' % (self._getPrefix(i),
+                             i,
+                             self._getSuffix(i)) for i in self.aliases]
+        return ', '.join(aliases)
 
     def getDoc(self):
         '''Returns the doc provided for any of the given aliases'''
@@ -327,7 +333,7 @@ class FlagInfo(ArgumentInfo):
     
 class OptionInfo(FlagInfo):    
 
-    def _getSuffix(self):
+    def _getSuffix(self, name=None):
         
         def getVariableName():
             if self.mode.varNames:
@@ -336,9 +342,9 @@ class OptionInfo(FlagInfo):
                         return self.mode.varNames[alias]
                     except KeyError:
                         pass
-            return self.aliases[-1]
+            return self.aliases[-1].upper()
                                      
-        return self.mode.delimiter + getVariableName().upper()
+        return self.mode.getDelimiter(name or self.name) + getVariableName()
     
             
 
@@ -490,15 +496,14 @@ class OptMatcherInfo(object):
         self.converts.update(dict([(i, self._asInt) for i in ints.values()]))
         self.lastArg = len(vars) + 1
             
-    def getFlags(self):
-        #Returns the defined flags. See _getOptionsAndDefaults 
-        return self._getOptionsAndDefaults(self.flags, FlagInfo)
-                                        
+    def getDoc(self):
+        return self.func.__doc__
+    
     def getOptions(self):
-        #Returns the defined options and prefixes. See _getOptionsAndDefaults 
-        use = self.options.copy()
-        use.update(self.prefixes)
-        return self._getOptionsAndDefaults(use, OptionInfo)
+        #Returns the defined options and prefixes. See _getOptionsAndDefaults
+        ret = self._getOptionsAndDefaults(self.flags, FlagInfo) 
+        ret += self._getOptionsAndDefaults(self.options, OptionInfo)
+        return ret + self._getOptionsAndDefaults(self.prefixes, OptionInfo)
                                         
     def getParameters(self):
         '''Returns the defined parameters as a tuple
@@ -802,6 +807,42 @@ class UsageFormatter(object):
         self.content = []
         self.reset()
         
+    def printHelp(self, width=72, tab=2, column=24):
+        self.reset(width)
+        if not self.handlers:
+            self.add('Error, no usage configured')
+        else:
+            options = self.getAllOptions()
+            self.add('Usage: ')
+            alternatives = self.getAlternatives()
+            if alternatives == 1:
+                self.add(self.getOptions(0, True) + self.getParameters(0))
+            else:
+                if options:
+                    self.add('[common options] ')
+                self.add(self.getAllParameters())
+            if options:
+                self.addLine()
+                self.addLine('options:')
+                for each in options:
+                    self.addLine(each.aliasesAsStr(), tab)
+                    doc = each.getDoc()
+                    if doc:
+                        self.add(doc, column)
+            if alternatives > 1:
+                self.addLine()
+                self.addLine('alternatives:')
+                for i in range(alternatives):
+                    content = self.getOptions(i, True) + self.getParameters(i)
+                    self.addLine()
+                    self.addLine(content, tab)
+                    doc = self.getDoc(i)
+                    if doc:
+                        self.add(doc, column)
+        print self.getContent()
+                
+            
+        
     def getAllOptions(self):
 
         def compare(a, b):
@@ -834,7 +875,7 @@ class UsageFormatter(object):
 
         all = {}
         for each in handlers:
-            for option in each.getFlags() + each.getOptions():
+            for option in each.getOptions():
                 if not option.name in all:
                     all[option.name] = option
         ret = all.values()
@@ -843,6 +884,9 @@ class UsageFormatter(object):
 
     def getAlternatives(self):
         return len(self.handlers)
+    
+    def getDoc(self, alternative):
+        return self.handlers[alternative].getDoc()
     
     def getParameters(self, alternative):
         handlers = self._getHandlers(alternative, True)
@@ -875,36 +919,29 @@ class UsageFormatter(object):
             args.append('...')
         return args
     
-    def reset(self, width=80, ident=2):
+    def reset(self, width=72):
         self.content = ['']
         self.width = width
-        self.ident = ident
         
     def getContent(self):
         return '\n'.join(self.content)
         
-    def addLine(self):
+    def addLine(self, content=None, position=0):
         self.content.append('')
-        
-    def addLine(self, content):
-        self.addLine()
-        self.add(content)
+        if content:
+            self.add(content, position)
         
     def add(self, content, position=0):
         if isinstance(content, str):
             content = content.split(' ')
         current = self.content.pop()
-        if position:
-            newLineRequired = len(current) + 4 > position
-        else:
-            newLineRequired = len(current) > 0
-        if newLineRequired:
+        if position > 0 and current and len(current) + 2 > position:
             self.content.append(current)
             current = ''
+        started = not position and len(current.strip()) > 0
         current += ' ' * (position - len(current))
-        position += self.ident
-        started = False
         for each in content:
+            each = str(each)
             if started and (len(current) + len(each) >= self.width):
                 self.content.append(current)
                 current = ' ' * position
@@ -924,9 +961,6 @@ class UsageFormatter(object):
         return ret
     
         
-    def printHelp(self):
-        pass
-    
     
     
 class OptionMatcher (object):
