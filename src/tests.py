@@ -870,7 +870,7 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, arg):
                 return oOption, arg
             
-        self.assertEquals(Simple(option='/',delimiter=':').
+        self.assertEquals(Simple(option='/',assigner=':').
                           process([None, '/o:23', 'file']),
                                            ('23', 'file')) 
 
@@ -885,7 +885,7 @@ class OptMatcherTests(Tests):
             
         self.assertEquals(Simple(aliases={'o':'opt'},
                                  option='/',\
-                                 delimiter=':').
+                                 assigner=':').
                                  process([None, '/opt:23', 'file']),
                                            ('23', 'file')) 
             
@@ -900,7 +900,7 @@ class OptMatcherTests(Tests):
             
         self.assertEquals(Simple(aliases={'opt':'o'},
                                  option='/',
-                                 delimiter=':').
+                                 assigner=':').
                                  process([None, '/opt:23', 'file']),
                                            ('23', 'file')) 
 
