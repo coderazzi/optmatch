@@ -1,6 +1,6 @@
 import unittest
 
-from optmatch import CommandLine, OptMatcherHandler, OptionMatcher, UsageMode 
+from optmatch import CommandLine, OptMatcherHandler, OptionMatcher, UsageMode
 from optmatch import UsageException, OptionMatcherException 
 from optmatch import optmatcher, optcommon 
 
@@ -13,32 +13,24 @@ from optmatch import optmatcher, optcommon
 #        except exception, which:
 #            self.assertEqual(str(which), exStr)
 #            
-#    def test30(self):
-#        '''Defining a non existing flag'''
-#    
+#    def test1042(self):
+#        '''Aliases test using common, varargs'''
+#        
 #        class Simple(OptionMatcher):
+#            
+#            @optcommon
+#            def common_options(self, vFlag):
+#                self.v = vFlag
 #            
 #            @optmatcher
-#            def handleA(self, o):
-#                return False
+#            def handle(self, oOption, *ends):
+#                return self.v, oOption, ends
+#        
+#        args = [None, '--verbose', '--option=2', '1', '2']
+#        aliases = {'v':'verbose', 'o':'option'}
+#        self.assertEquals(Simple(aliases=aliases).process(args),
+#                          (True, '2', ('1', '2')))
 #
-#            @optmatcher(flags='k')
-#            def handleB(self, o):
-#                return True
-#            
-#        self.failUnless(Simple().process([None, '-k', 'o']))
-#
-#    def test30x(self):
-#        '''Non existing flag are required'''
-#    
-#        class Simple(OptionMatcher):
-#            
-#            @optmatcher(flags='k')
-#            def handleB(self):
-#                pass
-#            
-#        self.assertRaiseArg(UsageException, 'Missing required flag k',
-#                            Simple().process, [None])
 #
 #class Tests:
 class Tests(unittest.TestCase):
@@ -50,26 +42,16 @@ class Tests(unittest.TestCase):
         except exception, which:
             self.assertEqual(str(which), exStr)
 
-    def test1011(self):
-        '''Simple test, one flag, not given'''
-        
-        class Simple(OptionMatcher):
-            
-            @optmatcher
-            def handle(self, vFlag): pass
-            
-        self.assertRaiseArg(UsageException, 'Missing required flag v',
-                            Simple().process, [None])
 
 class InternalTests(Tests):
     '''Tests on internal OptMatcherHandler'''
     
-    def test0001Ok(self):
+    def test0001(self):
         '''Non getopt mode. Long flag easy'''
         
         def method(aFlag): pass
         
-        m=UsageMode('-', '=')
+        m = UsageMode('-', '=')
         arg = CommandLine([None, '-a'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -80,7 +62,7 @@ class InternalTests(Tests):
         
         def method(aFlag): pass
         
-        m=UsageMode('-', '=')
+        m = UsageMode('-', '=')
         arg = CommandLine([None, '-b'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -91,7 +73,7 @@ class InternalTests(Tests):
         
         def method(aOption): pass
         
-        m=UsageMode('-', '=')
+        m = UsageMode('-', '=')
         arg = CommandLine([None, '-a=2'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -102,7 +84,7 @@ class InternalTests(Tests):
         
         def method(**kwarg): pass
         
-        m=UsageMode('-', '=')
+        m = UsageMode('-', '=')
         arg = CommandLine([None, '-a=2'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -113,7 +95,7 @@ class InternalTests(Tests):
         
         def method(**kwargs): pass
         
-        m=UsageMode('-', '=')
+        m = UsageMode('-', '=')
         arg = CommandLine([None, '-a'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -124,7 +106,7 @@ class InternalTests(Tests):
         
         def method(DPrefix): pass
         
-        m=UsageMode('-', '=')
+        m = UsageMode('-', '=')
         arg = CommandLine([None, '-Dname=value'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -135,7 +117,7 @@ class InternalTests(Tests):
         
         def method(IPrefix): pass
         
-        m=UsageMode('-', '=')
+        m = UsageMode('-', '=')
         arg = CommandLine([None, '-Iname'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -146,12 +128,12 @@ class InternalTests(Tests):
         
         def method(IPrefix): pass
         
-        m=UsageMode('-', '=')
+        m = UsageMode('-', '=')
         arg = CommandLine([None, '-I=name'], m, False)
         ch = OptMatcherHandler(method, m)
-        self.assertRaiseArg(UsageException, 
+        self.assertRaiseArg(UsageException,
                             'Incorrect prefix usage on argument -I=name',
-                            ch.handleArg, 
+                            ch.handleArg,
                             arg)
         
     def test0024(self):
@@ -168,7 +150,7 @@ class InternalTests(Tests):
         
         def method(aFlag): pass
         
-        m=UsageMode('-', '=')
+        m = UsageMode('-', '=')
         arg = CommandLine([None, '-aalias'], m, False)
         ch = OptMatcherHandler(method, m)
         ch.setAliases({'a':'aalias'})
@@ -180,7 +162,7 @@ class InternalTests(Tests):
         
         def method(aOption): pass
         
-        m=UsageMode('-', '=')
+        m = UsageMode('-', '=')
         arg = CommandLine([None, '-aalias=2'], m, False)
         ch = OptMatcherHandler(method, m)
         ch.setAliases({'a':'aalias'})
@@ -192,7 +174,7 @@ class InternalTests(Tests):
         
         def method(DPrefix): pass
         
-        m=UsageMode('-', '=')
+        m = UsageMode('-', '=')
         arg = CommandLine([None, '-definename=value'], m, False)
         ch = OptMatcherHandler(method, m)
         ch.setAliases({'D':'define'})    
@@ -204,7 +186,7 @@ class InternalTests(Tests):
         
         def method(IPrefix): pass
         
-        m=UsageMode('-', '=')
+        m = UsageMode('-', '=')
         arg = CommandLine([None, '-includename'], m, False)
         ch = OptMatcherHandler(method, m)
         ch.setAliases({'I':'include'})    
@@ -216,7 +198,7 @@ class InternalTests(Tests):
         
         def method(verboseFlag): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -227,7 +209,7 @@ class InternalTests(Tests):
         
         def method(verboseFlag): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '--qqw'], m, False)
         ch = OptMatcherHandler(method, m)
         self.failUnless(ch.handleArg(arg))
@@ -237,7 +219,7 @@ class InternalTests(Tests):
         
         def method(modeOption): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '--mode=2'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -248,7 +230,7 @@ class InternalTests(Tests):
         
         def method(definePrefix): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '--definename=value'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -259,7 +241,7 @@ class InternalTests(Tests):
         
         def method(includePrefix): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '--includename'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -270,7 +252,7 @@ class InternalTests(Tests):
         
         def method(vFlag): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose'], m, False)
         ch = OptMatcherHandler(method, m)
         ch.setAliases({'v':'verbose'})
@@ -282,7 +264,7 @@ class InternalTests(Tests):
         
         def method(vOption): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose=2'], m, False)
         ch = OptMatcherHandler(method, m)
         ch.setAliases({'v':'verbose'})
@@ -294,7 +276,7 @@ class InternalTests(Tests):
         
         def method(aOption): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '--a=2'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -305,7 +287,7 @@ class InternalTests(Tests):
         
         def method(aPrefix): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '--aValue'], m, False)
         ch = OptMatcherHandler(method, m)
         self.failUnless(ch.handleArg(arg))
@@ -315,7 +297,7 @@ class InternalTests(Tests):
         
         def method(aPrefix):pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '-a', '-Value'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect prefix a',
@@ -326,7 +308,7 @@ class InternalTests(Tests):
         
         def method(verboseOption): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose', 'value'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -337,7 +319,7 @@ class InternalTests(Tests):
         
         def method(verboseOption): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose', '-value'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option verbose',
@@ -348,7 +330,7 @@ class InternalTests(Tests):
         
         def method(verboseOption): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose', 'name=value'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option verbose',
@@ -359,7 +341,7 @@ class InternalTests(Tests):
         
         def method(vFlag): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '-v'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -370,7 +352,7 @@ class InternalTests(Tests):
         
         def method(vOption): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '-v1'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -381,7 +363,7 @@ class InternalTests(Tests):
         
         def method(vOption): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '-v'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option v',
@@ -392,7 +374,7 @@ class InternalTests(Tests):
         
         def method(vOption): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '-v', '1'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -403,7 +385,7 @@ class InternalTests(Tests):
         
         def method(vOption): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '-v', '-a'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option v',
@@ -414,7 +396,7 @@ class InternalTests(Tests):
         
         def method(vOption): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '-v', 'a=h'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option v',
@@ -425,18 +407,18 @@ class InternalTests(Tests):
         
         def method(vFlag): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '-vw'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
         self.failUnless(not ret and ch.provided[1] and arg.name == 'w')
-    
+            
     def test0501(self):
         '''getopt mode. Flag and Short options given'''
         
         def method(vOption, wFlag): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '-wv', 'q'], m, False)
         ch = OptMatcherHandler(method, m)
         self.failUnless(not ch.handleArg(arg) and not ch.handleArg(arg) 
@@ -448,7 +430,7 @@ class InternalTests(Tests):
         
         def method(par1): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, 'file'], m, False)
         ch = OptMatcherHandler(method, m)
         ret = ch.handleArg(arg)
@@ -460,7 +442,7 @@ class InternalTests(Tests):
         
         def method(par1, par2): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, 'file', 'more'], m, False)
         ch = OptMatcherHandler(method, m)
         self.failUnless(not ch.handleArg(arg) and not ch.handleArg(arg)
@@ -472,7 +454,7 @@ class InternalTests(Tests):
         
         def method(par1): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, 'file', 'more'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertFalse(ch.handleArg(arg) and ch.handleArg(arg)) 
@@ -482,7 +464,7 @@ class InternalTests(Tests):
         
         def method(*var): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, 'file', 'more'], m, False)
         ch = OptMatcherHandler(method, m)
         self.failUnless(not ch.handleArg(arg) and not ch.handleArg(arg) 
@@ -493,7 +475,7 @@ class InternalTests(Tests):
         
         def method(aFlag, par1, par2): pass
         
-        m=UsageMode('--', '=')
+        m = UsageMode('--', '=')
         arg = CommandLine([None, '-a', 'par1', '-v'], m, True)
         ch = OptMatcherHandler(method, m)
         self.failUnless(not ch.handleArg(arg) and not ch.handleArg(arg) 
@@ -606,7 +588,7 @@ class OptMatcherTests(Tests):
                           (True, '1', 'file'))
 
     def test1023(self):
-        '''More complex test, one flag, one separated option, one parameter'''
+        '''More complex test, a flag, a separated option, one parameter'''
         
         class Simple(OptionMatcher):
             
@@ -665,7 +647,7 @@ class OptMatcherTests(Tests):
                           (True, 'file'))
 
     def test1033(self):
-        '''More complex test, two possible handlers and a common one, not given
+        '''More complex test, two possible handlers and a common, not given
         '''
         
         class Simple(OptionMatcher):
@@ -763,7 +745,7 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, vOption): pass
             
         self.assertRaises(OptionMatcherException,
-                          Simple(aliases={'v':'o'}, option='-').process, [])
+                          Simple(aliases={'v':'o'}, optionPrefix='-').process, [])
 
     def test1047(self):
         '''Aliases test, overriding some long definition'''
@@ -853,7 +835,7 @@ class OptMatcherTests(Tests):
             
             @optcommon
             def common(self, par1):
-                self.par1=par1
+                self.par1 = par1
 
             @optmatcher
             def handle(self, par2):
@@ -870,7 +852,7 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, arg):
                 return oOption, arg
             
-        self.assertEquals(Simple(option='/',assigner=':').
+        self.assertEquals(Simple(optionPrefix='/', assigner=':').
                           process([None, '/o:23', 'file']),
                                            ('23', 'file')) 
 
@@ -884,7 +866,7 @@ class OptMatcherTests(Tests):
                 return oOption, arg
             
         self.assertEquals(Simple(aliases={'o':'opt'},
-                                 option='/',\
+                                 optionPrefix='/', \
                                  assigner=':').
                                  process([None, '/opt:23', 'file']),
                                            ('23', 'file')) 
@@ -899,7 +881,7 @@ class OptMatcherTests(Tests):
                 return oOption, arg
             
         self.assertEquals(Simple(aliases={'opt':'o'},
-                                 option='/',
+                                 optionPrefix='/',
                                  assigner=':').
                                  process([None, '/opt:23', 'file']),
                                            ('23', 'file')) 
@@ -919,7 +901,7 @@ class OptMatcherTests(Tests):
             def handle(self, arg):
                 return Any.oOption, arg
             
-        s=Simple()
+        s = Simple()
         s.setMatchers(None, Any.specificCommonHandler)
         self.assertEquals(s.process([None, '-o23', 'file']), ('23', 'file')) 
 
@@ -932,7 +914,7 @@ class OptMatcherTests(Tests):
             def myOwnHandler(oOption, par):
                 return oOption, par
             
-        s=OptionMatcher()
+        s = OptionMatcher()
         s.setMatchers([Any.myOwnHandler])
         self.assertEquals(s.process([None, '-o23', 'file']), ('23', 'file')) 
 
@@ -945,7 +927,7 @@ class OptMatcherTests(Tests):
             def handle(f):
                 return f
             
-        s=OptionMatcher()
+        s = OptionMatcher()
         s.setMatchers([Simple.handle])
         self.assertEquals(s.process([None, 'ok']), 'ok')
 
@@ -954,7 +936,7 @@ class OptMatcherTests(Tests):
         
         def work(aFlag, aOption): pass
         
-        s=OptionMatcher()
+        s = OptionMatcher()
         s.setMatchers([work])
         self.assertRaiseArg(OptionMatcherException,
                             'Repeated option "a" in function work',
@@ -1039,7 +1021,7 @@ class OptMatcherTestsOnDecoration(Tests):
             def handleA(self, v):
                 return True
             
-        self.assertRaiseArg(OptionMatcherException, 
+        self.assertRaiseArg(OptionMatcherException,
                             'Invalid renamePar v',
                             Simple().process, [None])
 
@@ -1052,7 +1034,7 @@ class OptMatcherTestsOnDecoration(Tests):
             def handleA(self, v):
                 return True
             
-        self.assertRaiseArg(OptionMatcherException, 
+        self.assertRaiseArg(OptionMatcherException,
                             'Invalid renamePar v',
                             Simple().process, [None])
 
@@ -1065,7 +1047,7 @@ class OptMatcherTestsOnDecoration(Tests):
             def handleA(self, o):
                 return True
             
-        self.assertRaiseArg(OptionMatcherException, 
+        self.assertRaiseArg(OptionMatcherException,
                             'Invalid argument: k',
                             Simple().process, [None])
 
@@ -1093,7 +1075,7 @@ class OptMatcherTestsOnDecoration(Tests):
             def handleB(self): 
                 pass
             
-        self.assertRaiseArg(OptionMatcherException, 
+        self.assertRaiseArg(OptionMatcherException,
                             'Invalid argument: k',
                             Simple().process, [None])
 
@@ -1106,7 +1088,7 @@ class OptMatcherTestsOnDecoration(Tests):
             def handleB(self): 
                 pass
             
-        self.assertRaiseArg(OptionMatcherException, 
+        self.assertRaiseArg(OptionMatcherException,
                             'Invalid argument: k',
                             Simple().process, [None])
 
@@ -1128,15 +1110,15 @@ class OptMatcherTestsOnDecoration(Tests):
         class Simple(OptionMatcher):
             
             @optmatcher(flags='o,v', options='w', prefixes='d as D',
-                        intOptions='i', floatOptions='f', 
+                        intOptions='i', floatOptions='f',
                         renamePars='par as class', priority=1)
             def handleA(self, o, v, w, d, i, f, par):
                 return o, v, w, d, i, f, par
         
-        args=[None, '-oww', '-vi1', '-f', '2.3', '-Dvalue', 'class']
+        args = [None, '-oww', '-vi1', '-f', '2.3', '-Dvalue', 'class']
         self.assertEquals(Simple().process(args),
-                                           (True, True, 'w', [('value', None)],
-                                            1, 2.3, 'class'))
+                                         (True, True, 'w', [('value', None)],
+                                          1, 2.3, 'class'))
 
     def test3022O(self):
         '''API test: defining all via decorator, using also optcommon'''
@@ -1148,15 +1130,15 @@ class OptMatcherTestsOnDecoration(Tests):
                 self.m = m
             
             @optmatcher(flags='o,v', options='w', prefixes='d as D',
-                        intOptions='i', floatOptions='f', 
+                        intOptions='i', floatOptions='f',
                         renamePars='par as class', priority=1)
             def handleA(self, o, v, w, d, i, f, par):
                 return self.m, o, v, w, d, i, f, par
 
-        args=[None, '-oww', '--mode=23', '-vi1', '-f', '2.3', '-Dvalue', 
+        args = [None, '-oww', '--mode=23', '-vi1', '-f', '2.3', '-Dvalue',
               'class']
         self.assertEquals(Simple().process(args),
-                          (23, True, True, 'w', [('value', None)], 
+                          (23, True, True, 'w', [('value', None)],
                            1, 2.3, 'class'))
 
     def test3031(self):
@@ -1306,5 +1288,590 @@ class OptMatcherTestsOnErrorMessages(Tests):
                             Simple().process, [None, '-vp', 'arg', '-q'])
 
 
+class OptMatcherTestsWrongSyntax(Tests):
+    '''Tests to verify incorrect syntax'''
+
+    def test5001(self):
+        '''Matchers are required'''
+        class Simple(OptionMatcher):
+            pass
+            
+        self.assertRaiseArg(OptionMatcherException,
+                            'No matchers defined',
+                            Simple(defaultHelp=False).check)
+
+    def test5002(self):
+        '''Matchers are required. optcommon, not enough'''
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def common(self): pass
+            
+        self.assertRaiseArg(OptionMatcherException,
+                            'No matchers defined',
+                            Simple(defaultHelp=False).check)
+
+    def test5003(self):
+        '''Matchers are required, given in any way'''
+        class Simple(OptionMatcher):
+            
+            def handle(self): pass 
+                
+        
+        s = Simple()
+        s.setMatchers([s.handle])
+        s.check()
+        self.assert_(True)
+        
+    def test5011(self):
+        '''Problems with common handler accepting varargs'''
+        
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def handleA(self, *args): pass
+
+            @optmatcher
+            def handleB(self, arg): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                            'method Simple.handleB cannot be invoked: ' + 
+                            'common handler accepts varargs',
+                            Simple().check)
+
+    def test5012(self):
+        '''Common handler can accept varargs (if matchers have no pars)'''
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def handleA(self, *args): pass
+
+            @optmatcher
+            def handleB(self): pass
+
+        Simple(defaultHelp=False).check()
+        self.assert_(True)
+
+    def test5013(self):
+        '''common handler can accept varargs (if matchers have only options)'''
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def handleA(self, *args): pass
+
+            @optmatcher
+            def handleB(self, kFlag): pass
+
+        Simple(defaultHelp=False).check()
+        self.assert_(True)
+
+    def test5014(self):
+        '''common handler can accept varargs (if matchers have default pars)'''
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def handleA(self, *args): pass
+
+            @optmatcher
+            def handleB(self, par='file'): pass
+
+        Simple(defaultHelp=False).check()
+        self.assert_(True)
+
+    def test5021(self):
+        '''Problem with kwargs in common handler'''
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def handleA(self, **args): pass
+
+            @optmatcher
+            def handleB(self, kFlag): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                            'method Simple.handleB cannot be invoked: ' + 
+                            'common handler accepts kwargs',
+                            Simple(optionPrefix='-').check)
+
+    def test5022(self):
+        '''No Problem with kwargs in common in getopt mode'''
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def handleA(self, **args): pass
+
+            @optmatcher
+            def handleB(self, kFlag): pass
+
+        Simple().check()
+        self.assert_(True)
+
+    def test5023(self):
+        '''No Problem with kwargs in common if matchers have defaults'''
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def handleA(self, **args): pass
+
+            @optmatcher
+            def handleB(self, kFlag=False): pass
+
+        Simple(optionPrefix='-', defaultHelp=False).check()
+        self.assert_(True)
+
+    def test5031(self):
+        '''Problem on two handles with same parameters (None)'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self): pass
+
+            @optmatcher
+            def handleB(self): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                        'method Simple.handleB cannot be invoked: ' + 
+                        'method Simple.handleA will be always invoked first',
+                         Simple().check)
+
+    def test5032(self):
+        '''Problem on two handles with same parameters (a flag)'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, kFlag): pass
+
+            @optmatcher
+            def handleB(self, kFlag): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                        'method Simple.handleB cannot be invoked: ' + 
+                        'method Simple.handleA will be always invoked first',
+                         Simple().check)
+
+    def test5034(self):
+        '''Problem on two handles with same parameters (an option)'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, kOption): pass
+
+            @optmatcher
+            def handleB(self, kOption): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                        'method Simple.handleB cannot be invoked: ' + 
+                        'method Simple.handleA will be always invoked first',
+                         Simple().check)
+
+    def test5036(self):
+        '''No problem on two handles with same parameters if 2. optional'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, kFlag): pass
+
+            @optmatcher
+            def handleB(self, kFlag=True): pass
+
+        Simple().check()
+        self.assert_(True)
+
+    def test5037(self):
+        '''problem on two handles with same parameters if 1. optional'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, kFlag=True): pass
+
+            @optmatcher
+            def handleB(self, kFlag): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                        'method Simple.handleB cannot be invoked: ' + 
+                        'method Simple.handleA will be always invoked first',
+                         Simple().check)
+
+    def test5041(self):
+        '''problem on two handles with same n. mandatory parameters'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, one, two): pass
+
+            @optmatcher
+            def handleB(self, one, two): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                        'method Simple.handleB cannot be invoked: ' + 
+                        'method Simple.handleA will be always invoked first',
+                         Simple().check)
+
+    def test5042(self):
+        '''problem on two handles with less mandatory parameters'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, one): pass
+
+            @optmatcher
+            def handleB(self, one, two): pass
+
+        Simple().check()
+        self.assert_(True)
+
+    def test5043(self):
+        '''problem on two handles with more mandatory parameters'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, one, two): pass
+
+            @optmatcher
+            def handleB(self, one): pass
+
+        Simple().check()
+        self.assert_(True)
+
+    def test5044(self):
+        '''problem on two handles with same n. mandatory, less optional'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, one, two): pass
+
+            @optmatcher
+            def handleB(self, one, two, third='o'): pass
+
+        Simple().check()
+        self.assert_(True)
+
+    def test5045(self):
+        '''problem on two handles with less mandatory &optional parameters'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, one): pass
+
+            @optmatcher
+            def handleB(self, one, two, third='o'): pass
+
+        Simple().check()
+        self.assert_(True)
+
+    def test5046(self):
+        '''problem on two handles with more mandatory, less optional'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, one, two): pass
+
+            @optmatcher
+            def handleB(self, one, third='o'): pass
+
+        Simple().check()
+        self.assert_(True)
+
+    def test5047(self):
+        '''problem on two handles with same n. mandatory, more optional'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, one, two, third='o'): pass
+
+            @optmatcher
+            def handleB(self, one, two): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                        'method Simple.handleB cannot be invoked: ' + 
+                        'method Simple.handleA will be always invoked first',
+                         Simple().check)
+
+    def test5048(self):
+        '''problem on two handles with less mandatory , more parameters'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, one, third='o'): pass
+
+            @optmatcher
+            def handleB(self, one, two): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                        'method Simple.handleB cannot be invoked: ' + 
+                        'method Simple.handleA will be always invoked first',
+                         Simple().check)
+
+    def test5049(self):
+        '''problem on two handles with more mandatory &  optional'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, one, two, third='o'): pass
+
+            @optmatcher
+            def handleB(self, one, third='o'): pass
+
+        Simple().check()
+        self.assert_(True)
+
+
+    def test5050(self):
+        '''problem on two handles/parameters'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, one, two, third='o'): pass
+
+            @optmatcher
+            def handleB(self, one, two='a', third='a'): pass
+
+        Simple().check()
+        self.assert_(True)
+
+
+    def test5061(self):
+        '''problem on clashing options with common'''
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def handleA(self, kFlag, oFlag): pass
+
+            @optmatcher
+            def handleB(self, kFlag, pFlag): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                        'method Simple.handleB defines clashing options ' + 
+                        'with the common matcher method Simple.handleA : k',
+                         Simple().check)
+
+    def test5062(self):
+        '''problem on clashing options with common. type is dismissed'''
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def handleA(self, kFlag, oFlag): pass
+
+            @optmatcher
+            def handleB(self, kOption, pFlag): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                        'method Simple.handleB defines clashing options ' + 
+                        'with the common matcher method Simple.handleA : k',
+                         Simple().check)
+
+    def test5063(self):
+        '''problem on clashing options with common. alias apply'''
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def handleA(self, cFlag, oFlag): pass
+
+            @optmatcher
+            def handleB(self, courierOption, pFlag): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                        'method Simple.handleB defines clashing options ' + 
+                        'with the common matcher method Simple.handleA : c',
+                         Simple(aliases={'c':'courier'}).check)
+
+    def test5071(self):
+        '''problem on defining an option on different ways'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, kFlag): pass
+
+            @optmatcher
+            def handleB(self, kOption): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                           'Flag k in method Simple.handleA is defined as ' + 
+                           'Option in method Simple.handleB',
+                           Simple().check)
+
+    def test5072(self):
+        '''problem on defining an option on different ways, through aliases'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, kFlag): pass
+
+            @optmatcher
+            def handleB(self, koOption): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                           'Flag k in method Simple.handleA is defined as ' + 
+                           'Option in method Simple.handleB',
+                           Simple(aliases={'k':'ko'}).check)
+
+    def test5081(self):
+        '''problem on defining help for multiple aliases of an option'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, kFlag): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                           'optionsHelp defines information for aliases k, ko',
+                           Simple(aliases={'k':'ko'},
+                                  optionsHelp={'k':'', 'ko':''}).check)
+
+    def test5082(self):
+        '''problem on defining help for unknown option'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                           'optionsHelp defines information for unknown: k',
+                           Simple(optionsHelp={'k':''}).check)
+
+    def test5083(self):
+        '''problem on defining vars for multiple aliases of an option'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self, kFlag): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                    'optionVarNames defines information for aliases k, ko',
+                    Simple(aliases={'k':'ko'},
+                    optionVarNames={'k':'', 'ko':''}).check)
+
+    def test5084(self):
+        '''problem on defining vars for unknown option'''
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handleA(self): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                           'optionVarNames defines information for unknown: k',
+                           Simple(optionVarNames={'k':''}).check)
+
+
+class UsageTests(Tests):
+    '''Tests on internal OptMatcherHandler'''
+    
+    def test6001(self):
+        '''Global help test'''
+        
+        class Simple(OptionMatcher):
+            
+            @optcommon
+            def handle(self, commonFlag, dPrefix, bFlag, commonOptOption=23, 
+                       commonPar='po' , *gh): 
+                pass
+            
+            @optmatcher
+            def handleA(self, fOption, DPrefix, one, two, iOptionInt=34, 
+                        wFlag=True, *args):
+                '''Executes this program repeatedly until everybody is tired''' 
+                pass
+        
+            @optmatcher
+            def handleB(self, pFlag, one, mOption, 
+                        iOptionInt=68, verboseFlag=False): 
+                pass
+        
+            @optmatcher
+            def handleC(self, pFlag, one, three, four, iOptionInt=68, 
+                        verboseFlag=False): 
+                pass
+        
+            @optmatcher(flags='super')
+            def handleD(self): 
+                pass
+        
+        
+        aliases = {'v':'verbose', 
+                   'f':'filename',
+                   'i':'include',
+                   'D':'define',
+                   'm':'mode'}
+        info={'v':'lot of useless info is output', 
+              'D': 'create a new prefix',
+              'f':'write output to FILE', 
+              'm':'interaction mode: novice, intermediate, or '+
+                    'expert [default: intermediate]'}
+        vars={'d':'DX', 'i':'IN', 'f':'FILE'}
+        usage=Simple(aliases=aliases, optionsHelp=info, 
+                     optionVarNames=vars, defaultHelp=False).getUsage()    
+        
+        expected='''Usage: [common options] commonPar ...
+
+options:
+  -b
+  --common
+  -p
+  --super
+  -v, --verbose         lot of useless info is output
+  -w
+  --commonOpt=COMMONOPT
+  -d DX
+  -D DEFINE, --define=DEFINE
+                        create a new prefix
+  -f FILE, --filename=FILE
+                        write output to FILE
+  -i IN, --include=IN
+  -m MODE, --mode=MODE  interaction mode: novice, intermediate, or
+                        expert [default: intermediate]
+
+alternatives:
+
+* [--commonOpt=COMMONOPT (23)] [-i IN (34)] [-w (True)] -b --common
+  -d DX -D DEFINE -f FILE [commonPar (po)] ...
+                        Executes this program repeatedly until everybody
+                        is tired
+
+* [--commonOpt=COMMONOPT (23)] [-i IN (68)] [-v (False)] -b --common
+  -d DX -m MODE -p [commonPar (po)] ...
+
+* [--commonOpt=COMMONOPT (23)] [-i IN (68)] [-v (False)] -b --common
+  -d DX -p [commonPar (po)] ...
+
+* [--commonOpt=COMMONOPT (23)] -b --common -d DX --super
+  [commonPar (po)] ...'''
+        
+#        for a, b in zip(usage.getUsageString(), expected):
+#            print a, b
+#        print len(usage.getUsageString()), len(expected)
+        self.assertEqual(usage.getUsageString(), expected)
+        
+    def test6011(self):
+        '''Checking default help'''
+
+        class Simple(OptionMatcher):
+
+            def printHelp(self):
+                return True
+
+        self.failUnless(Simple().process([None, '-h']))
+
+    def test6012(self):
+        '''Checking default help using alias'''
+
+        class Simple(OptionMatcher):
+
+            def printHelp(self):
+                return True
+
+        self.failUnless(Simple().process([None, '--help']))
+
+    def test6013(self):
+        '''Checking default help, non getopt mode'''
+
+        class Simple(OptionMatcher):
+
+            def printHelp(self):
+                return True
+
+        self.failUnless(Simple(optionPrefix='-').process([None, '-help']))
+
+
+
+        
 if __name__ == '__main__':
     unittest.main()
