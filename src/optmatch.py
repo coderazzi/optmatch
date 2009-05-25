@@ -1,19 +1,19 @@
 """optmatch - matching command line argument by method's signatures
 Support usual GNU/Unix conventions, but not exclusively
 
-Author:  LuisM Pena <luismi@coderazzi.net>
+Author:  Luis M. Pena <dr.lu@coderazzi.net>
 Site:    www.coderazzi.net/python/optmatch
 """
 
-__version__ = "0.8.1"
+__version__ = "0.8.2"
 
-__all__ = ['optcommon', 'optmatcher',
+__all__ = ['optset', 'optmatcher',
            'OptionMatcher', 'OptionMatcherException', 'UsageException',
            'UsageAccessor',
            'ArgumentInfo', 'FlagInfo', 'OptionInfo', 'PrefixInfo']
            
 __copyright__ = """
-Copyright (c) LuisM Pena <hal@coderazzi.net>  All rights reserved.
+Copyright (c) Luis M. Pena <dr.lu@coderazzi.net>  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -40,7 +40,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import re
-import types
 
 class Decoration(object):
     '''
@@ -48,30 +47,29 @@ class Decoration(object):
     optmatcher decorator adds an attribute 'optmatcher' that contains
         the list of parameters provided in the decorator definition, 
         like flags, options, etc, in a given order
-    optcommon decorator behaves as the optmatcher one, but adds a 
-        second attribute to the function/method: 'optcommon', with 
+    optset decorator behaves as the optmatcher one, but adds a 
+        second attribute to the function/method: 'optset', with 
         value True
     '''
     
     @staticmethod
-    def decorate(optcommon, *args):
-        #Decoration method for optmatcher and optcommon decorators.
-        #Param optcommon should be True for optcommon decorators
+    def decorate(optset, *args):
+        #Decoration method for optmatcher and optset decorators.
+        #Param optset should be True for optset decorators
         #Param args is the ordered parameters allowed in those decorators
         
         def decorate(f, value):
             f.optmatcher = value
-            if optcommon:
-                f.optcommon = True          
+            if optset:
+                f.optset = True          
             return f
         
         #perhaps the base decorator is called with the function to decorate
         #This happens for cases like: @optmatcher def handle(...)
         #No decorator parameter should be a function, so this case can
         # be handled as follows:
-        if (args[0] and not filter(None, args[1:]) and 
-            (isinstance(args[0], types.FunctionType) or 
-              isinstance(args[0], types.MethodType))):
+        if (args[0] and not filter(None, args[1:]) and
+                type(args[0]) == type(decorate)): 
             return decorate(args[0], [])
 
         return lambda x: decorate(x, args)
@@ -100,7 +98,7 @@ class Decoration(object):
         functionsAndPriorities = []
         for att in dir(instance):
             f = getattr (instance, att)
-            if definedAsCommon == hasattr(f, 'optcommon'):
+            if definedAsCommon == hasattr(f, 'optset'):
                 info, priority = Decoration.parseDecoration(f)
                 if info:
                     functionsAndPriorities.append((priority or 0, f))
@@ -166,9 +164,8 @@ class CommandLine(object):
     def __init__(self, args, mode, gnuMode):
         '''param args: the list of arguments to handle (first dismissed)'''
         #reShort is hardcoded to '-' if the option is defined as '--'
-        self.reShort = mode.getopt and re.compile('-(.+)$')
-        #note than text calls imply that option or assigner are re-safe!
-        self.reOption = re.compile(mode.option + '(.+)$')
+        self.reShort = mode.getopt
+        self.reOption = mode.option
         self.reSeparation = re.compile('(.+?)' + mode.assigner + '(.+)$')
         self.args = args
         self.gnuMode = gnuMode
@@ -220,21 +217,26 @@ class CommandLine(object):
         self.arg = self.args[self.next]
         arg = self.arg #...
         self.next += 1
-        self.option = False
+        self.option, self.isShort = False, False
+        option = self.arg.startswith(self.reOption)
         if self.canBeOption:
-            match = self.reOption.match(self.arg)
-            if match:  #normal (long) option
-                self.option, self.isShort = True, False
-                arg = match.group(1)
-            else:               
-                match = self.reShort and self.reShort.match(self.arg)
-                if match: #short option
-                    arg = match.group(1)
-                    self.name, self.value = arg[0], arg[1:]
-                    self.option, self.isShort, self.split = True, True, False
-                    return True
-                self.canBeOption = not self.gnuMode        
-        self.split, self.name, self.value = self.separate(arg)
+            if option:  #normal (long) option
+                arg = self.arg[len(self.reOption):]
+                self.option = True
+            elif self.reShort and self.arg[0] == '-':
+                arg = self.arg[1:]
+                self.option, self.isShort, self.split = True, True, False
+            else:
+                self.canBeOption = not self.gnuMode
+        elif option or (self.reShort and self.arg[0] == '-'):
+            raise UsageException('Unexpected argument ' + self.arg + 
+                                 ' after non option arguments')
+        if not arg:
+            raise UsageException('Unexpected argument ' + self.arg)         
+        if self.isShort:         
+            self.name, self.value = arg[0], arg[1:]
+        else:
+            self.split, self.name, self.value = self.separate(arg)
         return self.option
 
 
@@ -326,7 +328,7 @@ class OptionInfo(FlagInfo):
                         return self.mode.varNames[alias]
                     except KeyError:
                         pass
-            return self.aliases[-1].upper()
+            return self.aliases[ - 1].upper()
                                      
         return self.mode.getDelimiter(name or self.name) + getVariableName()
     
@@ -798,12 +800,13 @@ class OptMatcherHandler(OptMatcherInfo):
 class UsageAccessor(object):
     '''Class to access and to format usage info'''
     
-    def __init__(self, handlers, common, mode):
+    def __init__(self, handlers, commons, mode):
         self.mode = mode
         self.handlers = handlers
-        self.common = common        
+        self.commons = commons        
         self.content = []
         self.reset()
+        self.commonOptions = self._getOptionsDir(self.commons, {})
         
     def getUsageString(self, width=72, column=24, ident=2):
         '''Generic method to print the usage. By default, the window
@@ -866,8 +869,8 @@ class UsageAccessor(object):
             return (A < B and - 1) or (A > B and 1) or 0
         
         #Search is done over all the matchers, with priority on the common
-        handlers = ((self.common and [self.common]) or []) + self.handlers
-        return self._getOptions(handlers, compare)
+        return self._getOptions(self.handlers, self.commonOptions, 
+                                True, compare)
 
     def getOptions(self, alternative, includeCommon):
         '''Returns -as FlagInfo instances-, all the flags/options/prefixes
@@ -883,9 +886,13 @@ class UsageAccessor(object):
             A = a.name.lower()    
             B = b.name.lower()
             return (A < B and - 1) or (A > B and 1) or 0
+        
+        handlers = (alternative != - 1 and [self.handlers[alternative]]) or []
                     
-        handlers = self._getHandlers(alternative, includeCommon)
-        return self._getOptions(handlers, compare)
+        return self._getOptions(handlers,
+                                self.commonOptions,
+                                includeCommon,
+                                compare)
 
     def getCommonOptions(self):
         '''Returns -as FlagInfo instances-, all the flags/options/prefixes
@@ -894,17 +901,25 @@ class UsageAccessor(object):
         '''
         return self.getOptions(-1, True)
     
-    def _getOptions(self, handlers, compare):
+    def _getOptions(self, handlers, base, union, compare):
         #iterate over the options of every handler, adding the option if not
-        #yet there. Finally, sort the list to return with the compare function
-        all = {}
-        for each in handlers:
-            for option in each.getOptions():
-                if not option.name in all:
-                    all[option.name] = option
+        #yet there
+        all = self._getOptionsDir(handlers, base)
+        if union:
+            all.update(base)
         ret = all.values()
         ret.sort(compare)
         return ret
+
+    def _getOptionsDir(self, handlers, base):
+        #iterate over the options of every handler, adding the option if not
+        #yet there
+        all = {}
+        for each in handlers:
+            for option in each.getOptions():
+                if not option.name in all and not option.name in base:
+                    all[option.name] = option
+        return all
 
     def getAlternatives(self):
         '''Returns the number of provided matchers'''
@@ -916,7 +931,7 @@ class UsageAccessor(object):
     
     def getParameters(self, alternative):
         '''Returns the parameters (as ArgumentInfo) for the given matcher'''
-        handlers = self._getHandlers(alternative, True)
+        handlers = self.commons + [self.handlers[alternative]]
         ret = []
         for h in handlers: #common, first (if defined), then handlers
             ret.extend(h.getParameters())
@@ -946,17 +961,21 @@ class UsageAccessor(object):
                 if a != p.name:
                     args[l] = 'arg%d' % (l + 1)
             args += [p.name for p in pars[len(args):]]
-            vararg = vararg or each.supportVargs()
-        if self.common:
-            if self.common.supportVargs(): 
+            if each.supportVargs():
+                vararg = True
+                break
+        commonArgs = []
+        for each in self.commons:
+            commonArgs = commonArgs + [p.name for p in each.getParameters()]
+            if each.supportVargs(): 
                 #in this case, the parameters of no matcher will be used,
                 #because the matcher would consume them first
                 vararg = True
                 args = []
-            args = [p.name for p in self.common.getParameters()] + args
+                break
         if vararg:
             args.append('...')
-        return args
+        return commonArgs + args
     
     def reset(self, width=72):
         '''Format method, clears the content'''
@@ -1009,33 +1028,27 @@ class UsageAccessor(object):
                 started = True            
         self.content.append(current.rstrip())                
                 
-    def _getHandlers(self, alternative, includeCommon):
-        #Returns as list the common matcher -if requested-, plus the
-        # alternative one (if >=0)
-        ret = (alternative >= 0 and [self.handlers[alternative]]) or []
-        if includeCommon and self.common:
-            ret.insert(0, self.common)
-        return ret     
     
     
 class SyntaxChecker(object):
     '''Class to verify the syntax of the provided helper'''
     
-    def __init__(self, matcherHandlers, commonHandler):
+    def __init__(self, matcherHandlers, commonHandlers):
         
         def getNMandatory(pars):
             #returns number of mandatory parameters
             return len(filter(lambda p: not p.defaultProvided, pars))
             
         self.matchers = matcherHandlers
-        self.common = commonHandler
+        self.commons = commonHandlers
         self.options = [m.getOptions() for m in self.matchers]
         self.pars = [m.getParameters() for m in self.matchers]
         self.mandatoryPars = [getNMandatory(p) for p in self.pars]
         self.mandatoryOptions = [getNMandatory(o) for o in self.options]
-        if self.common:
-            self.commonPars = self.common.getParameters()
-            self.commonOptions = self.common.getOptions()
+        self.commonPars = [c.getParameters() for c in self.commons]
+        self.commonOptions = [c.getOptions() for c in self.commons]
+        self.commonMndPars = [getNMandatory(o) for o in self.commonPars]
+        self.commonMndOptions = [getNMandatory(o) for o in self.commonOptions]
     
     def check(self, mode):
         '''Verifies the defined syntax
@@ -1051,8 +1064,7 @@ class SyntaxChecker(object):
         #different checks on handlers
         if not self.matchers:
             raise OptionMatcherException ('No matchers defined')        
-        if self.common:
-            self._checkCommonHandler()
+        self._checkCommonHandlers()
         self._checkAllMatchersCanBeCalled()
         self._checkMatcherTypes()
         
@@ -1060,8 +1072,8 @@ class SyntaxChecker(object):
         #checks the documentation help (alias are always tested)
         keys = set (helpMap.keys())
         options = self.options[:] 
-        if self.common:
-            options.append(self.commonOptions)
+        for each in self.commonOptions:
+            options.append(each)
         for each in options:
             for o in each:
                 defined = set(o.aliases).intersection(keys)
@@ -1090,29 +1102,40 @@ class SyntaxChecker(object):
                           ' is defined as ' + o.getType() + ' in ' + 
                           h.describe())
         
-    def _checkCommonHandler(self):
-        #checks that the common does not hide or clash with any matchers        
-        commonVargs, commonKwargs = self.common.getVKwargsSupport()
-        for i in range(len(self.matchers)):
-            if commonVargs and self.mandatoryPars[i]:
-                raise OptionMatcherException (self.matchers[i].describe() + 
-                    ' cannot be invoked: common handler accepts varargs')
-            if commonKwargs:
-                if self.mandatoryOptions[i]:
-                    raise OptionMatcherException (self.matchers[i].describe() + 
-                         ' cannot be invoked: common handler accepts kwargs')
-            else:
-                #check that no handler defines same options as common
-                for p in self.options[i]:
-                    for c in self.commonOptions:
-                        if c.name == p.name:
-                            raise OptionMatcherException (
-                                 self.matchers[i].describe() + ' defines ' + 
-                                 'clashing options with the common matcher ' + 
-                                 self.common.describe() + ' : ' + c.name)
+    def _checkCommonHandlers(self):
+        #checks that the common does not hide or clash with any matchers
+        all = self.commons + self.matchers
+        allPars = self.commonPars + self.mandatoryPars
+        allOptions = self.commonOptions + self.mandatoryOptions
+        for i in range(len(self.commons)):
+            common = self.commons[i]
+            handlers = self.commons[i + 1:] + self.matchers
+            mandatoryPars = self.commonMndPars[i + 1:] + self.mandatoryPars
+            mandatoryOptions = self.commonMndOptions[i + 1:] + self.mandatoryOptions
+            options = self.commonOptions[i + 1:] + self.options
+            commonVargs, commonKwargs = common.getVKwargsSupport()
+            for j in range(len(handlers)):
+                if commonVargs and mandatoryPars[j]:
+                    raise OptionMatcherException (handlers[j].describe() + 
+                        ' cannot be invoked: common handler ' + 
+                        common.describe() + ' accepts varargs')
+                if commonKwargs:
+                    if mandatoryOptions[j]:
+                        raise OptionMatcherException (handlers[j].describe() + 
+                             ' cannot be invoked: common handler ' + 
+                             common.describe() + ' accepts kwargs')
+                else:
+                    #check that no handler defines same options as common
+                    for p in options[j]:
+                        for c in self.commonOptions[i]:
+                            if c.name == p.name:
+                                raise OptionMatcherException (
+                                     handlers[j].describe() + ' defines ' + 
+                                     'clashing options with the common matcher ' + 
+                                     common.describe() + ' : ' + c.name)
                         
     def _checkAllMatchersCanBeCalled(self):
-        '''Verifies that there all defined handlers can be called'''
+        '''Verifies that all defined handlers can be called'''
         
         def isOptionsSuperset(i, j):
             iOptions, jOptions = self.options[i], self.options[j]
@@ -1133,7 +1156,7 @@ class SyntaxChecker(object):
                 if not iVarargs and not jVarargs:
                     #check options only if params are the same. Params are
                     # the same if the range of accepted parameters in the 
-                    # secon option (mandatory..len) matches the range
+                    # second option (mandatory..len) matches the range
                     # of the first option
                     if (self.mandatoryPars[j] < self.mandatoryPars[i] or
                             len(self.pars[j]) > len(self.pars[i])): 
@@ -1152,7 +1175,7 @@ class OptionMatcher (object):
     It supports naturally the handling of mutually exclusive options.
     '''
     
-    def __init__(self, matchers=None, commonMatcher=None, aliases=None,
+    def __init__(self, matchers=None, commons=None, aliases=None,
                  optionsHelp=None, optionVarNames=None,
                  optionPrefix='--', assigner='=', defaultHelp=True):
         '''
@@ -1160,9 +1183,9 @@ class OptionMatcher (object):
             line, in specific order. 
             If not specified, all methods of current instance with 
             decorator optmatcher are used, with the specified priority
-        Param commonMatcher can be used to specify a matcher to handle 
-            common options. If it is not specified, the method of the 
-            current instance with decorator optcommon is used -if any-.
+        Param commons can be used to specify matchers to handle 
+            common options. If it is not specified, the methods of the 
+            current instance with decorator optset is used -if any-.
         Param aliases is a map, allowing setting option aliases. 
             In getopt mode, all aliases must be defined between a short
             (1 character length) option and a long (>1 character length)
@@ -1190,14 +1213,14 @@ class OptionMatcher (object):
         '''
         self._mode = UsageMode(optionPrefix, assigner)
         self._defaultHelp = defaultHelp
-        self.setMatchers(matchers, commonMatcher)
+        self.setMatchers(matchers, commons)
         self.setAliases(aliases)
         self.setUsageInfo(optionsHelp, optionVarNames)
                
-    def setMatchers(self, matchers, commonMatcher=None):
+    def setMatchers(self, matchers, commons=None):
         '''Sets the matchers and the common matcher. See __init__'''
         self._matchers = matchers
-        self._common = commonMatcher
+        self._commons = commons
     
     def setAliases(self, aliases):
         '''Sets the aliases. See __init__'''
@@ -1217,20 +1240,17 @@ class OptionMatcher (object):
         '''
         return Decoration.getDecoratedMethods(instance or self, False)
                         
-    def getCommonMatcherMethod(self, instance=None):
+    def getCommonMatcherMethods(self, instance=None):
         '''Returns the common matcher method in the given instance, if any.
         If there were multiple such methods, the method with highest 
         priority (or lower alphabetically) is returned.
         '''
-        all = Decoration.getDecoratedMethods(instance or self, True)
-        if all:
-            return all[0]
-        return None
+        return Decoration.getDecoratedMethods(instance or self, True)
                                                                          
     def getUsage(self):
         '''Returns an Usage object to handle the usage info'''
-        matcherHandlers, commonHandler = self._createHandlers()        
-        return UsageAccessor(matcherHandlers, commonHandler, self._mode)
+        matcherHandlers, commonHandlers = self._createHandlers()        
+        return UsageAccessor(matcherHandlers, commonHandlers, self._mode)
     
     def check(self):
         '''Checks the syntax. This taks is only executed on demand'''
@@ -1245,7 +1265,7 @@ class OptionMatcher (object):
         Param gnu determines gnu behaviour. Is True, no-option 
             arguments can be only specified latest
         '''
-        matcherHandlers, common = self._createHandlers()   
+        matchers, commons = self._createHandlers()   
         commandLine = CommandLine(args, self._mode, gnu)        
         highestProblem = None, 'Invalid command line input'
         
@@ -1254,25 +1274,25 @@ class OptionMatcher (object):
         #As soon as a matcher can handle the arguments, we invoke it, as well
         # as the common handler, if given.
         try:
-            for handler in matcherHandlers:            
-                problem = self._tryHandlers(common, handler, commandLine)
+            for handler in matchers:            
+                problem = self._tryHandlers(commons, handler, commandLine)
                 if not problem:
                     #handlers ok: invoke common handler, then matcher's handler
-                    if common:
-                        common.invoke()
+                    for each in commons:
+                        each.invoke()
                     return handler.invoke()
                 position = commandLine.getPosition()
                 if position > highestProblem[0]:
                     highestProblem = position, problem 
-                #prepare command line, common handler for next loop
+                #prepare command line, common handlers for next loop
                 commandLine.reset()
-                if common:
-                    common.reset()
+                for each in commons:
+                    each.reset()
             raise UsageException (highestProblem[1])       
         except UsageException, ex:
             if handleUsageProblems:
                 import sys
-                sys.stderr.write(str(ex)+'\n') 
+                sys.stderr.write(str(ex) + '\n') 
             else:
                 raise
     
@@ -1298,28 +1318,35 @@ class OptionMatcher (object):
         matchers = [createHandle(f) 
                     for f in (self._matchers or self.getMatcherMethods())]
         
+        commons = [createHandle(f) 
+                   for f in (self._commons or self.getCommonMatcherMethods())]
+        
         if self._defaultHelp:
-            #decorate the funciton on the fly, or any class gets the decoration
+            #cannot decorate directly printHelp, any instance would
+            #get the decoration!
             f = lambda: self.printHelp()
             matchers.append(createHandle(optmatcher(flags='help')(f)))
 
-        return matchers, createHandle(self._common or 
-                                      self.getCommonMatcherMethod())
+        return matchers, commons
 
     
-    def _tryHandlers(self, commonHandler, commandHandler, commandLine):
+    def _tryHandlers(self, commonHandlers, commandHandler, commandLine):
         #Checks if the specified handlers can process the command line.
         #If so, it returns None, letting the handlers ready to be invoked
         #Otherwise, it returns the reason why it cannot be handled 
         while not commandLine.finished():
-            if commonHandler:
-                if not commonHandler.handleArg(commandLine):
-                    continue
-            problem = commandHandler.handleArg(commandLine)
-            if problem:                
+            for each in commonHandlers:
+                if not each.handleArg(commandLine):
+                    break
+            else:
+                problem = commandHandler.handleArg(commandLine)
+                if problem:                
+                    return problem
+        for each in commonHandlers:
+            problem = each.checkInvokable()
+            if problem:
                 return problem
-        return ((commonHandler and commonHandler.checkInvokable()) or 
-                commandHandler.checkInvokable())
+        return commandHandler.checkInvokable()
         
 
 class OptionMatcherException(Exception):
@@ -1338,10 +1365,10 @@ def optmatcher(flags=None, options=None, intOptions=None,
     return Decoration.decorate(False, flags, options, intOptions,
                                 floatOptions, prefixes, renamePars, priority)
 
-def optcommon(flags=None, options=None, intOptions=None,
-              floatOptions=None, prefixes=None, renamePars=None,
-              priority=None):
-    '''Decorator defining a function / method as optcommon choice'''
+def optset(flags=None, options=None, intOptions=None,
+           floatOptions=None, prefixes=None, renamePars=None,
+           priority=None):
+    '''Decorator defining a function / method as optset choice'''
     
     return Decoration.decorate(True, flags, options, intOptions,
                                floatOptions, prefixes, renamePars, priority)
