@@ -326,7 +326,7 @@ class OptionInfo(FlagInfo):
                         return self.mode.varNames[alias]
                     except KeyError:
                         pass
-            return self.aliases[ - 1].upper()
+            return self.aliases[-1].upper()
                                      
         return self.mode.getDelimiter(name or self.name) + getVariableName()
     
@@ -626,27 +626,31 @@ class OptMatcherHandler(OptMatcherInfo):
         self.providedPars = []
                 
     def invoke(self):
-        '''Invokes the underlying function.'''
+        '''Invokes the underlying function, unless it cannot be invoked.'''
         #It is invoked using the options/parameters/defaults already setup
         status, args, kwargs = self._getInvokingPars()
-        return self.func(*args, **kwargs)
+        return status==None and self.func(*args, **kwargs)
     
-    def checkInvokable(self):
+    def checkInvokable(self, required):
         '''Verifies whether the underlying function can be invoked.'''
         #It can, if all the options/parameters are specified or have defaults
         errorReason = self._getInvokingPars()[0]
+        
         if errorReason:
-            return errorReason
-        #It must be still checked the orhpan flags' variables
-        #These are not passed to the method, but must have been provided to 
-        #consider that the method can be invoked
-        for each in range(self.orphanFlags, 0):
-            if not each in self.provided:
-                return 'Missing required ' + self.getIndexName(each)
+            if required or self._somethingProvided():
+                return errorReason
+        
+        return None
+            
+    def _somethingProvided(self):
+        #just check if the user provided any value
+        return self.providedPars or filter(lambda x: x != [],
+                                           self.provided.values())
         
     def _getInvokingPars(self):
         #Returns the parameters required to invoke the underlying function.
-        #The parameters are returned as a tuple (*args, **kwargs)
+        #It returns a tuple (problem, *args, **kwargs)
+        provided = self.provided or self.providedPars
         args, parameters = [], self.providedPars[:]
         #we only check the indexes 1...lastArg, so the orphan flags are not
         #checked here (they are not used to invoke the method)
@@ -670,6 +674,13 @@ class OptMatcherHandler(OptMatcherInfo):
         #if the function defined a *arg parameter, it can handle the 
         #  remaining provided parameters
         args.extend(parameters)
+        #It must be still checked the orphan flags' variables
+        #These are not passed to the method, but must have been provided to 
+        #consider that the method can be invoked
+        for c in range(self.orphanFlags, 0):
+            if not c in self.provided:
+                return 'Missing required ' + self.getIndexName(c), None, None
+            
         return None, args, self.kwargs or {}
                         
     def handleArg(self, commandLine):
@@ -867,7 +878,7 @@ class UsageAccessor(object):
             return (A < B and - 1) or (A > B and 1) or 0
         
         #Search is done over all the matchers, with priority on the common
-        return self._getOptions(self.handlers, self.commonOptions, 
+        return self._getOptions(self.handlers, self.commonOptions,
                                 True, compare)
 
     def getOptions(self, alternative, includeCommon):
@@ -885,7 +896,7 @@ class UsageAccessor(object):
             B = b.name.lower()
             return (A < B and - 1) or (A > B and 1) or 0
         
-        handlers = (alternative != - 1 and [self.handlers[alternative]]) or []
+        handlers = (alternative != -1 and [self.handlers[alternative]]) or []
                     
         return self._getOptions(handlers,
                                 self.commonOptions,
@@ -1177,7 +1188,7 @@ class OptionMatcher (object):
         if self._defaultHelp:
             #cannot decorate directly printHelp, any instance would
             #get the decoration!
-            f = lambda *a, **ch: self.printHelp()
+            f = lambda * a, **ch: self.printHelp()
             matchers.append(createHandle(optmatcher(flags='help')(f)))
 
         return matchers, commons
@@ -1186,20 +1197,21 @@ class OptionMatcher (object):
     def _tryHandlers(self, commonHandlers, commandHandler, commandLine):
         #Checks if the specified handlers can process the command line.
         #If so, it returns None, letting the handlers ready to be invoked
-        #Otherwise, it returns the reason why it cannot be handled 
+        #Otherwise, it returns the reason why it cannot be handled
+        handlers = [commandHandler] + commonHandlers
         while not commandLine.finished():
-            for each in commonHandlers:
-                if not each.handleArg(commandLine):
+            for each in handlers:
+                problem = each.handleArg(commandLine)
+                if not problem:
                     break
             else:
-                problem = commandHandler.handleArg(commandLine)
-                if problem:                
+                if problem:
                     return problem
         for each in commonHandlers:
-            problem = each.checkInvokable()
+            problem = each.checkInvokable(False)
             if problem:
                 return problem
-        return commandHandler.checkInvokable()
+        return commandHandler.checkInvokable(True)
         
 
 class OptionMatcherException(Exception):

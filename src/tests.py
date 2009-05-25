@@ -13,18 +13,17 @@ from optmatch import optmatcher, optset
 #        except exception, which:
 #            self.assertEqual(str(which), exStr)
 #            
-#    def test0611(self):
-#        '''getopt mode. Checking gnu mode'''
+#    def test1013(self):
+#        '''Define a required flag, provide two flags'''
 #        
-#        def method(aFlag, par1, par2): pass
-#        
-#        m = UsageMode('--', '=')
-#        arg = CommandLine([None, '-a', 'par1', '-v'], m, True)
-#        ch = OptMatcherHandler(method, m)
-#        self.failUnless(not ch.handleArg(arg)) 
-#        self.assertRaiseArg(UsageException, 
-#                        'Unexpected argument -v after non option arguments', 
-#                        ch.handleArg, arg)
+#        class Simple(OptionMatcher):
+#            
+#            @optmatcher
+#            def handle(self, vFlag): pass
+#            
+#        self.assertRaiseArg(UsageException, 'Unexpected flag o in argument -o',
+#                            Simple().process, [None, '-v', '-o'])
+#
 #
 #class Tests:
 class Tests(unittest.TestCase):
@@ -686,24 +685,75 @@ class OptMatcherTests(Tests):
                           (True, 'file'))
 
     def test1033(self):
-        '''Two matchers, a common one, whith flag not provided'''
+        '''common matcher with flag not provided'''
+        
+        class Simple(OptionMatcher):
+            
+            def __init__(self):
+                OptionMatcher.__init__(self)
+                self.v=None
+            
+            @optset
+            def common_options(self, vFlag):
+                self.v='invoked'
+            
+            @optmatcher
+            def handle(self, par):
+                return self.v==None
+            
+        self.failUnless(Simple().process([None, 'file']))
+        
+
+    def test1034(self):
+        '''common matcher with default flag not provided'''
         
         class Simple(OptionMatcher):
             
             @optset
-            def common_options(self, vFlag):
-                pass
+            def common_options(self, vFlag=True):
+                self.v=vFlag
             
             @optmatcher
-            def handle(self, oOption, par):
-                pass
+            def handle(self, par):
+                return self.v
+            
+        self.failUnless(Simple().process([None, 'file']))
+        
+
+    def test1035(self):
+        '''Common matcher, not fully specified'''
+        
+        class Simple(OptionMatcher):
+            
+            @optset
+            def common_options(self, vFlag, oFlag): pass
             
             @optmatcher
-            def handle2(self, par):
-                pass
+            def handle(self, par): pass
             
-        self.assertRaiseArg(UsageException, 'Missing required flag v',
-                            Simple().process, [None, 'file'])
+        self.assertRaiseArg(UsageException,
+                            'Missing required flag v',
+                            Simple().process, [None, '-o', 'file'])
+        
+
+    def test1036(self):
+        '''Common matcher, not fully specified, forcing 2nd matcher'''
+        
+        class Simple(OptionMatcher):
+            
+            @optset
+            def common_options(self, vFlag, oFlag): pass
+            
+            @optmatcher
+            def handle(self, par): pass
+            
+            @optmatcher
+            def handle2(self, oFlag, par): 
+                return oFlag, par, '2nd!'
+            
+        self.assertEqual(Simple().process([None, '-o', 'file']),
+                         (True, 'file', '2nd!'))
+        
 
     def test1041(self):
         '''Aliases test on common'''
@@ -880,7 +930,7 @@ class OptMatcherTests(Tests):
             def handle(self, par2):
                 return self.par1, par2
             
-        self.assertEquals(Simple().process([None, 'a', 'b']), ('a', 'b')) 
+        self.assertEquals(Simple().process([None, 'a', 'b']), ('b', 'a')) 
 
     def test2001(self):
         '''Checking non getoptMode'''
