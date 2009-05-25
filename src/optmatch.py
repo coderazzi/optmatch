@@ -5,12 +5,10 @@ Author:  Luis M. Pena <dr.lu@coderazzi.net>
 Site:    www.coderazzi.net/python/optmatch
 """
 
-__version__ = "0.8.2"
+__version__ = '0.8.2'
 
 __all__ = ['optset', 'optmatcher',
-           'OptionMatcher', 'OptionMatcherException', 'UsageException',
-           'UsageAccessor',
-           'ArgumentInfo', 'FlagInfo', 'OptionInfo', 'PrefixInfo']
+           'OptionMatcher', 'OptionMatcherException', 'UsageException']
            
 __copyright__ = """
 Copyright (c) Luis M. Pena <dr.lu@coderazzi.net>  All rights reserved.
@@ -1028,148 +1026,7 @@ class UsageAccessor(object):
                 started = True            
         self.content.append(current.rstrip())                
                 
-    
-    
-class SyntaxChecker(object):
-    '''Class to verify the syntax of the provided helper'''
-    
-    def __init__(self, matcherHandlers, commonHandlers):
-        
-        def getNMandatory(pars):
-            #returns number of mandatory parameters
-            return len(filter(lambda p: not p.defaultProvided, pars))
-            
-        self.matchers = matcherHandlers
-        self.commons = commonHandlers
-        self.options = [m.getOptions() for m in self.matchers]
-        self.pars = [m.getParameters() for m in self.matchers]
-        self.mandatoryPars = [getNMandatory(p) for p in self.pars]
-        self.mandatoryOptions = [getNMandatory(o) for o in self.options]
-        self.commonPars = [c.getParameters() for c in self.commons]
-        self.commonOptions = [c.getOptions() for c in self.commons]
-        self.commonMndPars = [getNMandatory(o) for o in self.commonPars]
-        self.commonMndOptions = [getNMandatory(o) for o in self.commonOptions]
-    
-    def check(self, mode):
-        '''Verifies the defined syntax
-        It raises an exception if any of the handlers is incorrectly defined
-        '''
-        self._checkHandlers()
-        if mode.optionsHelp:
-            self._checkHelp(mode.optionsHelp, 'optionsHelp')
-        if mode.varNames:
-            self._checkHelp(mode.varNames, 'optionVarNames')
-        
-    def _checkHandlers(self):
-        #different checks on handlers
-        if not self.matchers:
-            raise OptionMatcherException ('No matchers defined')        
-        self._checkCommonHandlers()
-        self._checkAllMatchersCanBeCalled()
-        self._checkMatcherTypes()
-        
-    def _checkHelp(self, helpMap, name):
-        #checks the documentation help (alias are always tested)
-        keys = set (helpMap.keys())
-        options = self.options[:] 
-        for each in self.commonOptions:
-            options.append(each)
-        for each in options:
-            for o in each:
-                defined = set(o.aliases).intersection(keys)
-                if len(defined) > 1:
-                    raise OptionMatcherException (name + ' defines ' + 
-                          'information for aliases ' + ', '.join(defined))
-                if defined:
-                    keys.remove(defined.pop())
-        if keys:
-            raise OptionMatcherException (name + ' defines information ' + 
-                 'for unknown: ' + ', '.join(keys))
-        
-    def _checkMatcherTypes(self):
-        #Verifies that every type is defined equally among the matchers        
-        all = {}
-        for h, options in zip(self.matchers, self.options):
-            for o in options:
-                try:
-                    last, where = all[o.name]
-                except KeyError:
-                    all[o.name] = o, h
-                    continue
-                if last.__class__ != o.__class__:
-                    raise OptionMatcherException (last.getType() + ' ' + 
-                          last.name + ' in ' + where.describe() + 
-                          ' is defined as ' + o.getType() + ' in ' + 
-                          h.describe())
-        
-    def _checkCommonHandlers(self):
-        #checks that the common does not hide or clash with any matchers
-        all = self.commons + self.matchers
-        allPars = self.commonPars + self.mandatoryPars
-        allOptions = self.commonOptions + self.mandatoryOptions
-        for i in range(len(self.commons)):
-            common = self.commons[i]
-            handlers = self.commons[i + 1:] + self.matchers
-            mandatoryPars = self.commonMndPars[i + 1:] + self.mandatoryPars
-            mandatoryOptions = self.commonMndOptions[i + 1:] + self.mandatoryOptions
-            options = self.commonOptions[i + 1:] + self.options
-            commonVargs, commonKwargs = common.getVKwargsSupport()
-            for j in range(len(handlers)):
-                if commonVargs and mandatoryPars[j]:
-                    raise OptionMatcherException (handlers[j].describe() + 
-                        ' cannot be invoked: common handler ' + 
-                        common.describe() + ' accepts varargs')
-                if commonKwargs:
-                    if mandatoryOptions[j]:
-                        raise OptionMatcherException (handlers[j].describe() + 
-                             ' cannot be invoked: common handler ' + 
-                             common.describe() + ' accepts kwargs')
-                else:
-                    #check that no handler defines same options as common
-                    for p in options[j]:
-                        for c in self.commonOptions[i]:
-                            if c.name == p.name:
-                                raise OptionMatcherException (
-                                     handlers[j].describe() + ' defines ' + 
-                                     'clashing options with the common matcher ' + 
-                                     common.describe() + ' : ' + c.name)
-                        
-    def _checkAllMatchersCanBeCalled(self):
-        '''Verifies that all defined handlers can be called'''
-        
-        def isOptionsSuperset(i, j):
-            iOptions, jOptions = self.options[i], self.options[j]
-            if (len(jOptions) != len(iOptions)):
-                return False
-            for a, b in zip(iOptions, jOptions):
-                if (a.__class__ != b.__class__ or a.name != b.name or
-                    (b.defaultProvided and not a.defaultProvided)):
-                        return False
-            return True
-
-        #a matcher cannot be invoked if there is other with a superset of
-        #its and the same number of parameters
-        for i in range(len(self.matchers)):
-            iVarargs, iKwargs = self.matchers[i].getVKwargsSupport()
-            for j in range(i + 1, len(self.matchers)):
-                jVarargs, jKwargs = self.matchers[j].getVKwargsSupport()
-                if not iVarargs and not jVarargs:
-                    #check options only if params are the same. Params are
-                    # the same if the range of accepted parameters in the 
-                    # second option (mandatory..len) matches the range
-                    # of the first option
-                    if (self.mandatoryPars[j] < self.mandatoryPars[i] or
-                            len(self.pars[j]) > len(self.pars[i])): 
-                        continue
-                #so check now if they support the same options
-                if iKwargs or (not jKwargs and isOptionsSuperset(i, j)):
-                    raise OptionMatcherException (
-                                self.matchers[j].describe() + 
-                                ' cannot be invoked: ' + 
-                                self.matchers[i].describe() + 
-                                ' will be always invoked first')
-
-    
+                    
 class OptionMatcher (object):
     ''' Class handling command line arguments by matching method parameters.
     It supports naturally the handling of mutually exclusive options.
@@ -1252,10 +1109,6 @@ class OptionMatcher (object):
         matcherHandlers, commonHandlers = self._createHandlers()        
         return UsageAccessor(matcherHandlers, commonHandlers, self._mode)
     
-    def check(self):
-        '''Checks the syntax. This taks is only executed on demand'''
-        return SyntaxChecker(* self._createHandlers()).check(self._mode)    
-    
     def printHelp(self):
         '''show the help message'''
         print self.getUsage().getUsageString()
@@ -1324,7 +1177,7 @@ class OptionMatcher (object):
         if self._defaultHelp:
             #cannot decorate directly printHelp, any instance would
             #get the decoration!
-            f = lambda: self.printHelp()
+            f = lambda *a, **ch: self.printHelp()
             matchers.append(createHandle(optmatcher(flags='help')(f)))
 
         return matchers, commons
