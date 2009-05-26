@@ -1091,7 +1091,7 @@ class OptionMatcher (object):
         return UsageAccessor(matcherHandlers, commonHandlers, self._mode)
     
     def printHelp(self):
-        '''show the help message'''
+        '''shows the help message'''
         print self.getUsage().getUsageString()
         
     def process(self, args, gnu=False, handleUsageProblems=False):
