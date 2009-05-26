@@ -13,15 +13,19 @@ from optmatch import optmatcher, optset
 #        except exception, which:
 #            self.assertEqual(str(which), exStr)
 #            
-#    def test2112(self):
-#        '''Missing optmatcher'''
-#                    
+#    def test1104(self):
+#        '''Using publicNames, expected error when overriding parameter'''
+#        
 #        class Simple(OptionMatcher):
 #            
-#            @optset
-#            def handle(self): pass
-#
-#        Simple().process([None])
+#            @optmatcher
+#            def handle(self, first, second): pass
+#            
+#        self.assertRaiseArg(OptionMatcherException,
+#                            'second cannot be a public rename, already '+
+#                            'defined as parameter in method Simple.handle',
+#                            Simple(publicNames={'first':'second'}).process, 
+#                            [None])
 #
 #class Tests:
 class Tests(unittest.TestCase):
@@ -928,7 +932,74 @@ class OptMatcherTests(Tests):
             def handle(self, par2):
                 return self.par1, par2
             
-        self.assertEquals(Simple().process([None, 'a', 'b']), ('b', 'a')) 
+        self.assertEquals(Simple().process([None, 'a', 'b']), ('b', 'a'))
+        
+    def test1101(self):
+        '''Using publicNames'''
+        
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handle(self, dFlag):
+                return dFlag
+            
+        self.failUnless(Simple(publicNames={'d':'dry-run'}
+                               ).process([None, '--dry-run']))
+                 
+    def test1102(self):
+        '''Using publicNames, expected error'''
+        
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handle(self, dFlag): pass
+            
+        self.assertRaiseArg(UsageException,
+                            'Unexpected flag d in argument -d',
+                            Simple(publicNames={'d':'dry-run'}).process, 
+                            [None, '-d'])
+
+    def test1103(self):
+        '''Using publicNames, expected error when overriding'''
+        
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handle(self, dFlag, oFlag): pass
+            
+        self.assertRaiseArg(OptionMatcherException,
+                            'o cannot be a public rename, already defined '+
+                            'in method Simple.handle',
+                            Simple(publicNames={'d':'o'}).process, 
+                            [None])
+
+    def test1104(self):
+        '''Using publicNames, expected error when overriding parameter'''
+        
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handle(self, first, second): pass
+            
+        self.assertRaiseArg(OptionMatcherException,
+                            'second cannot be a public rename, already '+
+                            'defined as parameter in method Simple.handle',
+                            Simple(publicNames={'first':'second'}).process, 
+                            [None])
+
+    def test1105(self):
+        '''Using publicNames and aliases'''
+        
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handle(self, dFlag):
+                return dFlag
+            
+        self.failUnless(Simple(publicNames={'d':'dry-run'}, 
+                               aliases={'r':'dry-run'}
+                               ).process([None, '-r']))                                  
+
 
     def test2001(self):
         '''Checking non getoptMode'''

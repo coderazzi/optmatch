@@ -356,15 +356,17 @@ class OptMatcherInfo(object):
         #populate now self.shortDefs and short.defs
         for group in self.flags, self.options, self.prefixes:
             for name in group.keys():
-                if len(name) == 1:
-                    #note that, in non getopt mode, shortDefs points to defs
-                    defSet = self.shortDefs
-                else:
-                    defSet = self.defs
+                defSet = self._getDefsGroup(name)
                 if name in defSet: #for example, defining kFlag and kOption
                     raise OptionMatcherException('Repeated option "' + name + 
                                                  '" in ' + self.describe())
                 defSet.add(name)
+                
+    def _getDefsGroup(self, name):
+        if len(name) == 1:
+            #note that, in non getopt mode, shortDefs points to defs
+            return self.shortDefs
+        return self.defs
 
     def _initializeParametersInformation(self, func):   
         #Initializes all parameter information associated to the function: 
@@ -538,6 +540,35 @@ class OptMatcherInfo(object):
                 pass
             ret.append(info)
         return ret
+    
+    def setPublicNames(self, publicNames):
+        '''Converts the existing flag/option/prefix/parameters'''
+        for old, new in publicNames.items():
+            defSet = self._getDefsGroup(old)
+            if old in defSet:
+                newSet = self._getDefsGroup(new)
+                if new in newSet:
+                    raise OptionMatcherException (new + ' cannot be a ' + 
+                        'public rename, already defined in ' + self.describe()) 
+                defSet.remove(old)
+                newSet.add(new)
+                for group in self.flags, self.options, self.prefixes:
+                    try:
+                        val = group[old]
+                        del group[old]
+                        group[new] = val
+                        break
+                    except KeyError:
+                        pass
+            else:
+                changed = False
+                for i, n in self.pars.items():
+                    if old == n:
+                        changed, self.pars[i] = True, new
+                    elif changed and new == n:
+                        raise OptionMatcherException (new + ' cannot be a '
+                                        'public rename, already defined as ' + 
+                                        'parameter in ' + self.describe())
                                             
     def setAliases(self, aliases):
         '''Sets aliases between option definitions.'''
@@ -1036,13 +1067,24 @@ class OptionMatcher (object):
     It supports naturally the handling of mutually exclusive options.
     '''
     
-    def __init__(self, aliases=None, optionsHelp=None, optionVarNames=None,
-                 optionPrefix='--', assigner='=', defaultHelp=True):
+    def __init__(self, aliases=None, publicNames=None, optionsHelp=None,
+                 optionVarNames=None, optionPrefix='--', assigner='=',
+                 defaultHelp=True):
         '''
         Param aliases is a map, allowing setting option aliases. 
             In getopt mode, all aliases must be defined between a short
             (1 character length) option and a long (>1 character length)
             option
+        Param publicNames is a map, allowing renaming the existing flags/
+            options/prefixes or parameter names. For example 'd': 'dry-run'
+            will convert the 'd' flag to expect 'dry-run' instead 
+        Param optionsVarNames identifies, for options and prefixes, the
+            variable name used during the usage output. For example, 
+            option 'm' would be visualized by default as '-m M', unless
+            this option is ised.
+            For aliases, it is possible to define the var name for 
+            any of the given aliases -if different names are supplied 
+            for two aliases of the same option, one will be dismissed-
         Param optionsHelp defines the information associated to each
             option. It is map from option's name to its documentation.
             For aliases, it is possible to define the documentation for 
@@ -1067,6 +1109,7 @@ class OptionMatcher (object):
         self._mode = UsageMode(optionPrefix, assigner)
         self.enableDefaultHelp(defaultHelp)
         self.setAliases(aliases)
+        self.setPublicNames(publicNames)
         self.setUsageInfo(optionsHelp, optionVarNames)
         
     def enableDefaultHelp(self, set=True):
@@ -1076,6 +1119,10 @@ class OptionMatcher (object):
     def setAliases(self, aliases):
         '''Sets the aliases. See __init__'''
         self._aliases = aliases
+    
+    def setPublicNames(self, publicNames):
+        '''Sets the public names. See __init__'''
+        self._publicNames = publicNames
     
     def setUsageInfo(self, optionsHelp, optionVarNames):
         '''Sets the usage information for each option. See __init__'''
@@ -1129,7 +1176,7 @@ class OptionMatcher (object):
                     each.reset()
             raise UsageException (highestProblem[1])       
         except UsageException, ex:
-            if handleUsageProblems!=False:
+            if handleUsageProblems != False:
                 import sys
                 sys.stderr.write(str(ex) + '\n')
                 return handleUsageProblems
@@ -1144,6 +1191,8 @@ class OptionMatcher (object):
             if not function:
                 return None
             ret = OptMatcherHandler(function, self._mode)
+            if self._publicNames:
+                ret.setPublicNames(self._publicNames)                
             if self._aliases:
                 ret.setAliases(self._aliases)                
             return ret
