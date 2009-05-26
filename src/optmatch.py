@@ -39,6 +39,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import re
 
+COMMA_SPLIT = re.compile('\\s*,\\s*')
+
 class Decoration(object):
     '''
     Internal namespace to define any decoration functionality
@@ -57,15 +59,19 @@ class Decoration(object):
         #Param args is the ordered parameters allowed in those decorators
         
         def decorate(f, value):
+            try:
+                f.optmatcher
+                raise OptionMatcherException ('Cannot decorate twice the ' + 
+                    'method ' + f.__name__)
+            except AttributeError:
+                pass
             f.optmatcher = value
             if optset:
                 f.optset = True          
             return f
         
         #perhaps the base decorator is called with the function to decorate
-        #This happens for cases like: @optmatcher def handle(...)
-        #No decorator parameter should be a function, so this case can
-        # be handled as follows:
+        #see http://coderazzi.net/tnotes/python/decoratorsWithoutArguments.html
         if (args[0] and not filter(None, args[1:]) and
                 type(args[0]) == type(decorate)): 
             return decorate(args[0], [])
@@ -75,29 +81,30 @@ class Decoration(object):
     @staticmethod
     def parseDecoration(function):
         #Parses the optmatcher decoration in the given function.
-        #If specified, it returns a tuple Info, priority, 
-        #  or (None, None) otherwise, where Info is the ordered list
+        #If specified, it returns a tuple Info, group, priority, 
+        #  or (None, None, None) otherwise, where Info is the ordered list
         #  of the decorator parameters
         
         def parser(flags=None, options=None, intOptions=None,
                    floatOptions=None, prefixes=None, renamePars=None,
                    priority=None, group=None):
             return (flags, options, intOptions, floatOptions, prefixes,
-                    renamePars), priority
+                    renamePars), group, priority
             
         try:
             return parser(*function.optmatcher)
         except:
-            return None, None
+            return None, None, None
 
     @staticmethod
     def getDecoratedMethods(instance, definedAsCommon):
-        #Returns the methods decorated with optmatcher, priority sorted
+        #Returns the methods decorated with optmatcher or optset -depending
+        # on definedAsCommon, priority sorted
         functionsAndPriorities = []
         for att in dir(instance):
             f = getattr (instance, att)
             if definedAsCommon == hasattr(f, 'optset'):
-                info, priority = Decoration.parseDecoration(f)
+                info, group, priority = Decoration.parseDecoration(f)
                 if info:
                     functionsAndPriorities.append((priority or 0, f))
         #sort now by inverse priority, and return just the functions
@@ -273,13 +280,10 @@ class ArgumentInfo(object):
     def _getSuffix(self, name=None):
         '''This is the prefix for the argument (=MODE, i.e.)'''
         return ''
-    
-    def getType(self):
-        return 'Parameter'
         
 
 class FlagInfo(ArgumentInfo):
-    '''Flags are arguments with aliases, adn with a prefix (--, i.e.)'''
+    '''Flags are arguments with aliases, and with a prefix (--, i.e.)'''
     
     def __init__(self, aliases, mode):
         '''The name of a flag/option is the shortest of its aliases'''
@@ -289,10 +293,8 @@ class FlagInfo(ArgumentInfo):
         
     def aliasesAsStr(self):
         '''Produces, for example: "-m MODE, --mode MODE" '''
-        aliases = ['%s%s%s' % (self._getPrefix(i),
-                             i,
-                             self._getSuffix(i)) for i in self.aliases]
-        return ', '.join(aliases)
+        return ', '.join(['%s%s%s' % (self._getPrefix(i), i,
+                         self._getSuffix(i)) for i in self.aliases])
 
     def getDoc(self):
         '''Returns the doc provided for the given aliases'''
@@ -308,9 +310,6 @@ class FlagInfo(ArgumentInfo):
     def _getPrefix(self, name=None):
         return self.mode.getOptionPrefix(name or self.name)
     
-    def getType(self):
-        return 'Flag'
-
     
 class OptionInfo(FlagInfo):    
     '''Options are flags that add a suffix: -m MODE, instead of -m, i.e. '''
@@ -330,21 +329,14 @@ class OptionInfo(FlagInfo):
                                      
         return self.mode.getDelimiter(name or self.name) + getVariableName()
     
-    def getType(self):
-        return 'Option'
-
             
 class PrefixInfo(OptionInfo):    
     '''Prefixes are flags that add a suffix: -m MODE, instead of -m, i.e. '''
     
-    def getType(self):
-        return 'Prefix'
-
 
 class OptMatcherInfo(object):
     '''Internal class, holds the information associated to each matcher'''
         
-    DECORATOR_SPLIT = re.compile('\\s*,\\s*')
     DECORATOR_ASSIGN = re.compile('(.+?)\\s+as\\s+(.+)')
     FLAG_PATTERN = re.compile('(.+)' + 
                               '(Flag|Option|OptionInt|OptionFloat|Prefix)$')
@@ -376,24 +368,22 @@ class OptMatcherInfo(object):
 
     def _initializeParametersInformation(self, func):   
         #Initializes all parameter information associated to the function: 
+        #Note that the index number associated to the first parameter
+        # is 1, not zero. This simplifies later many checks
         self.flags = {}      #maps flag name to parameter index
         self.options = {}    #maps option name to parameter index
         self.prefixes = {}   #maps prefix name to parameter index
         self.converts = {}   #maps from index (option) to convert function
         self.pars = {}       #maps parameter index to parameter name
         self.lastArg = 1     #the last available variable index plus 1
-        self.orphanFlags = 0 #flags without associated variable
-        
-        #Note that the index number associated to the first parameter
-        # is 1, not zero. This simplifies later many checks
-
+        self.orphanFlags = 0 #flags without associated variable        
         self.func = func
         
         vars, self.vararg, kwarg = self._getParametersInfo(func)
-        #if kwargs are supported, kwargs is used as a dictinary
+        #if kwargs are supported, kwargs is used as a dictionary
         self.kwargs = kwarg and not self.mode.getopt and {}
-        
-        decorationInfo, priority = Decoration.parseDecoration(func)
+        #note that self.group is used for 'applies' and 'exclusive' 
+        decorationInfo, self.group, priority = Decoration.parseDecoration(func)
         if decorationInfo and filter(None, decorationInfo): 
             self._initializeParametersFromDecorator(vars, *decorationInfo)
         else:
@@ -405,7 +395,7 @@ class OptMatcherInfo(object):
         self.defaults = dict([(i + firstDef, d) for i, d in enumerate(defs)])
         
     def _initializeParametersFromSignature(self, vars): 
-        #Initializes the metadata from the function's parameter names       
+        #Initializes the metadata from the function's parameter names
         for var in vars:
             match = self.FLAG_PATTERN.match(var)
             if match:
@@ -434,7 +424,7 @@ class OptMatcherInfo(object):
             ret = {}
             if decoration:
                 try:
-                    defs = self.DECORATOR_SPLIT.split(decoration.strip())
+                    defs = COMMA_SPLIT.split(decoration.strip())
                 except:
                     raise OptionMatcherException('Invalid definition')
                 for d in defs:
@@ -489,6 +479,14 @@ class OptMatcherInfo(object):
         self.converts = dict([(i, self._asFloat) for i in floats.values()])
         self.converts.update(dict([(i, self._asInt) for i in ints.values()]))
         self.lastArg = len(vars) + 1
+        
+    def appliesToMatcher(self, matcherHandler):
+        '''Returns true if this 'optset' handler applies to the matcher'''
+        if not self.group: #the user didn't specify an 'applies'
+            #in this case, it applies if the matcher is not exclusive
+            return not matcherHandler.group
+        #only invoked on optset' methods, where self.gorup is None or a r.e.
+        return self.group.match(matcherHandler.func.__name__) != None
             
     def getDoc(self):
         return self.func.__doc__
@@ -629,24 +627,19 @@ class OptMatcherHandler(OptMatcherInfo):
         '''Invokes the underlying function, unless it cannot be invoked.'''
         #It is invoked using the options/parameters/defaults already setup
         status, args, kwargs = self._getInvokingPars()
-        return status==None and self.func(*args, **kwargs)
+        return status == None and self.func(*args, **kwargs)
     
     def checkInvokable(self, required):
         '''Verifies whether the underlying function can be invoked.'''
+        
+        def somethingProvided():
+            #just check if the user provided any value.
+            return self.providedPars or filter(lambda x: x != [],
+                                               self.provided.values())            
         #It can, if all the options/parameters are specified or have defaults
-        errorReason = self._getInvokingPars()[0]
-        
-        if errorReason:
-            if required or self._somethingProvided():
-                return errorReason
-        
-        return None
-            
-    def _somethingProvided(self):
-        #just check if the user provided any value
-        return self.providedPars or filter(lambda x: x != [],
-                                           self.provided.values())
-        
+        errorReason = self._getInvokingPars()[0]        
+        return (required or somethingProvided()) and errorReason
+                    
     def _getInvokingPars(self):
         #Returns the parameters required to invoke the underlying function.
         #It returns a tuple (problem, *args, **kwargs)
@@ -815,7 +808,7 @@ class UsageAccessor(object):
         self.commons = commons        
         self.content = []
         self.reset()
-        self.commonOptions = self._getOptionsDir(self.commons, {})
+        self.commonOptions = self._getOptionsMap(self.commons, {})
         
     def getUsageString(self, width=72, column=24, ident=2):
         '''Generic method to print the usage. By default, the window
@@ -913,14 +906,14 @@ class UsageAccessor(object):
     def _getOptions(self, handlers, base, union, compare):
         #iterate over the options of every handler, adding the option if not
         #yet there
-        all = self._getOptionsDir(handlers, base)
+        all = self._getOptionsMap(handlers, base)
         if union:
             all.update(base)
         ret = all.values()
         ret.sort(compare)
         return ret
 
-    def _getOptionsDir(self, handlers, base):
+    def _getOptionsMap(self, handlers, base):
         #iterate over the options of every handler, adding the option if not
         #yet there
         all = {}
@@ -1072,10 +1065,14 @@ class OptionMatcher (object):
             user requests the --help option (or -h)
         '''
         self._mode = UsageMode(optionPrefix, assigner)
-        self._defaultHelp = defaultHelp
+        self.enableDefaultHelp(defaultHelp)
         self.setAliases(aliases)
         self.setUsageInfo(optionsHelp, optionVarNames)
-                   
+        
+    def enableDefaultHelp(self, set=True):
+        '''Enables the default help, under 'h' or 'help' '''
+        self._defaultHelp = set
+        
     def setAliases(self, aliases):
         '''Sets the aliases. See __init__'''
         self._aliases = aliases
@@ -1088,19 +1085,6 @@ class OptionMatcher (object):
         '''Sets the working mode. See __init__'''
         self._mode.set(option=optionPrefix, assigner=assigner)
     
-    def getMatcherMethods(self, instance=None):
-        '''Returns a list with all the methods defined as optmatcher
-        The list is sorted by priority, then alphabetically
-        '''
-        return Decoration.getDecoratedMethods(instance or self, False)
-                        
-    def getCommonMatcherMethods(self, instance=None):
-        '''Returns the common matcher method in the given instance, if any.
-        If there were multiple such methods, the method with highest 
-        priority (or lower alphabetically) is returned.
-        '''
-        return Decoration.getDecoratedMethods(instance or self, True)
-                                                                         
     def getUsage(self):
         '''Returns an Usage object to handle the usage info'''
         matcherHandlers, commonHandlers = self._createHandlers()        
@@ -1114,6 +1098,8 @@ class OptionMatcher (object):
         '''Processes the given command line arguments
         Param gnu determines gnu behaviour. Is True, no-option 
             arguments can be only specified latest
+        Param handleUsageProblems. If not False, it automatically catches 
+            UsageExceptions, returning the value handleUsageProblems
         '''
         matchers, commons = self._createHandlers()   
         commandLine = CommandLine(args, self._mode, gnu)        
@@ -1124,11 +1110,14 @@ class OptionMatcher (object):
         #As soon as a matcher can handle the arguments, we invoke it, as well
         # as the common handler, if given.
         try:
-            for handler in matchers:            
-                problem = self._tryHandlers(commons, handler, commandLine)
+            for handler in matchers:
+                #only use the common handlers that apply to the matcher
+                assocCommons = filter(lambda x: x.appliesToMatcher(handler),
+                                      commons)
+                problem = self._tryHandlers(assocCommons, handler, commandLine)
                 if not problem:
                     #handlers ok: invoke common handler, then matcher's handler
-                    for each in commons:
+                    for each in assocCommons:
                         each.invoke()
                     return handler.invoke()
                 position = commandLine.getPosition()
@@ -1140,9 +1129,10 @@ class OptionMatcher (object):
                     each.reset()
             raise UsageException (highestProblem[1])       
         except UsageException, ex:
-            if handleUsageProblems:
+            if handleUsageProblems!=False:
                 import sys
-                sys.stderr.write(str(ex) + '\n') 
+                sys.stderr.write(str(ex) + '\n')
+                return handleUsageProblems
             else:
                 raise
     
@@ -1166,19 +1156,21 @@ class OptionMatcher (object):
             self._mode.optionsHelp['help'] = 'shows this help message'
 
         matchers = [createHandle(f) 
-                    for f in self.getMatcherMethods()]
+                    for f in Decoration.getDecoratedMethods(self, False)]
+        
+        if not matchers:
+            raise OptionMatcherException("No matchers defined")
         
         commons = [createHandle(f) 
-                   for f in self.getCommonMatcherMethods()]
+                    for f in Decoration.getDecoratedMethods(self, True)]
         
         if self._defaultHelp:
             #cannot decorate directly printHelp, any instance would
             #get the decoration!
-            f = lambda * a, **ch: self.printHelp()
+            f = lambda : self.printHelp()
             matchers.append(createHandle(optmatcher(flags='help')(f)))
 
         return matchers, commons
-
     
     def _tryHandlers(self, commonHandlers, commandHandler, commandLine):
         #Checks if the specified handlers can process the command line.
@@ -1213,6 +1205,9 @@ def optmatcher(flags=None, options=None, intOptions=None,
                priority=None, exclusive=False):
     '''Decorator defining a function / method as optmatcher choice'''
     
+    if exclusive != True and exclusive != False:
+        raise OptionMatcherException('exclusive value must be True or False')
+
     return Decoration.decorate(False, flags, options, intOptions,
                                floatOptions, prefixes, renamePars, priority,
                                exclusive)
@@ -1221,6 +1216,14 @@ def optset(flags=None, options=None, intOptions=None,
            floatOptions=None, prefixes=None, renamePars=None,
            priority=None, applies=None):
     '''Decorator defining a function / method as optset choice'''
+    
+    if applies != None:
+        #convert applies into a regular expression
+        try:
+            applies = re.compile('^(' + '|'.join([each.replace('*', '.*') 
+                for each in COMMA_SPLIT.split(applies.strip())]) + ')$')
+        except:
+            raise OptionMatcherException('Invalid applies value: ' + applies)
     
     return Decoration.decorate(True, flags, options, intOptions,
                                floatOptions, prefixes, renamePars, priority,

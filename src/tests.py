@@ -13,17 +13,15 @@ from optmatch import optmatcher, optset
 #        except exception, which:
 #            self.assertEqual(str(which), exStr)
 #            
-#    def test1013(self):
-#        '''Define a required flag, provide two flags'''
-#        
+#    def test2112(self):
+#        '''Missing optmatcher'''
+#                    
 #        class Simple(OptionMatcher):
 #            
-#            @optmatcher
-#            def handle(self, vFlag): pass
-#            
-#        self.assertRaiseArg(UsageException, 'Unexpected flag o in argument -o',
-#                            Simple().process, [None, '-v', '-o'])
+#            @optset
+#            def handle(self): pass
 #
+#        Simple().process([None])
 #
 #class Tests:
 class Tests(unittest.TestCase):
@@ -1017,6 +1015,125 @@ class OptMatcherTests(Tests):
                             'Missing required flag a',
                             Simple().process, [None, '-rv', 'file', '-k'])
 
+    def test2111(self):
+        '''Defining a function twice'''
+                    
+        def go():
+            class Simple(OptionMatcher):
+                
+                @optset
+                @optmatcher
+                def handle(self): pass
+
+            Simple()
+
+        self.assertRaiseArg(OptionMatcherException,
+                            'Cannot decorate twice the method handle',
+                            go)
+
+    def test2112(self):
+        '''Missing optmatcher'''
+                    
+        class Simple(OptionMatcher):
+            
+            @optset
+            def handle(self): pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                            'No matchers defined',
+                            Simple().process, [])
+
+    def test2201(self):
+        '''Using applies on optset'''
+                    
+        class Simple(OptionMatcher):
+            
+            @optset(applies='handle2')
+            def set(self, vFlag): 
+                pass
+            
+            @optmatcher
+            def handle1(self):return False
+
+            @optmatcher
+            def handle2(self):return True
+
+        self.failUnless(Simple().process([None, '-v']))
+
+
+    def test2202(self):
+        '''Using applies on optset, * specified'''
+                    
+        class Simple(OptionMatcher):
+            
+            @optset(applies='*')
+            def set(self, vFlag): 
+                pass
+            
+            @optmatcher
+            def handle1(self):return True
+
+            @optmatcher
+            def handle2(self):return False
+
+        self.failUnless(Simple().process([None, '-v']))
+
+    def test2203(self):
+        '''Using applies on optset, * specified'''
+                    
+        class Simple(OptionMatcher):
+            
+            @optset(applies='handle*')
+            def set(self, vFlag): 
+                pass
+            
+            @optmatcher
+            def handle1(self):return True
+
+            @optmatcher
+            def handle2(self):return False
+
+        self.failUnless(Simple().process([None, '-v']))
+
+    def test2204(self):
+        '''Using applies on optset, several specified specified'''
+                    
+        class Simple(OptionMatcher):
+            
+            @optset(applies='handle2, handle3')
+            def set(self, vFlag): 
+                pass
+            
+            @optmatcher
+            def handle1(self):return False
+
+            @optmatcher
+            def handle2(self, oOption):return True
+
+            @optmatcher
+            def handle3(self):return True
+
+        self.failUnless(Simple().process([None, '-v']))
+
+    def test2211(self):
+        '''Using exclsuive on optmatcher'''
+                    
+        class Simple(OptionMatcher):
+            
+            @optset
+            def set(self, vFlag): 
+                pass
+            
+            @optmatcher(exclusive=True)
+            def handle1(self):return False
+
+            @optmatcher
+            def handle2(self):return True
+
+
+        self.failUnless(Simple().process([None, '-v']))
+
+
 class OptMatcherTestsOnDecoration(Tests):
     '''Tests on the OptionMatcher decorators'''
 
@@ -1194,7 +1311,7 @@ class OptMatcherTestsOnDecoration(Tests):
                                          (True, True, 'w', [('value', None)],
                                           1, 2.3, 'class'))
 
-    def test3022O(self):
+    def test3022(self):
         '''Full decoration, using also optset'''
     
         class Simple(OptionMatcher):
@@ -1496,6 +1613,9 @@ alternatives:
 
         class Simple(OptionMatcher):
 
+            @optmatcher
+            def handle(self):pass
+
             def printHelp(self):
                 return True
 
@@ -1505,6 +1625,9 @@ alternatives:
         '''Checking default help using alias'''
 
         class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handle(self):pass
 
             def printHelp(self):
                 return True
@@ -1516,10 +1639,14 @@ alternatives:
 
         class Simple(OptionMatcher):
 
+            @optmatcher
+            def handle(self):pass
+
             def printHelp(self):
                 return True
 
         self.failUnless(Simple(optionPrefix='-').process([None, '-help']))
+
 
 
 
