@@ -81,7 +81,7 @@ class Decoration(object):
         
         def parser(flags=None, options=None, intOptions=None,
                    floatOptions=None, prefixes=None, renamePars=None,
-                   priority=None):
+                   priority=None, group=None):
             return (flags, options, intOptions, floatOptions, prefixes,
                     renamePars), priority
             
@@ -1043,17 +1043,9 @@ class OptionMatcher (object):
     It supports naturally the handling of mutually exclusive options.
     '''
     
-    def __init__(self, matchers=None, commons=None, aliases=None,
-                 optionsHelp=None, optionVarNames=None,
+    def __init__(self, aliases=None, optionsHelp=None, optionVarNames=None,
                  optionPrefix='--', assigner='=', defaultHelp=True):
         '''
-        Param matchers define the methods/functions to handle the command 
-            line, in specific order. 
-            If not specified, all methods of current instance with 
-            decorator optmatcher are used, with the specified priority
-        Param commons can be used to specify matchers to handle 
-            common options. If it is not specified, the methods of the 
-            current instance with decorator optset is used -if any-.
         Param aliases is a map, allowing setting option aliases. 
             In getopt mode, all aliases must be defined between a short
             (1 character length) option and a long (>1 character length)
@@ -1081,15 +1073,9 @@ class OptionMatcher (object):
         '''
         self._mode = UsageMode(optionPrefix, assigner)
         self._defaultHelp = defaultHelp
-        self.setMatchers(matchers, commons)
         self.setAliases(aliases)
         self.setUsageInfo(optionsHelp, optionVarNames)
-               
-    def setMatchers(self, matchers, commons=None):
-        '''Sets the matchers and the common matcher. See __init__'''
-        self._matchers = matchers
-        self._commons = commons
-    
+                   
     def setAliases(self, aliases):
         '''Sets the aliases. See __init__'''
         self._aliases = aliases
@@ -1180,10 +1166,10 @@ class OptionMatcher (object):
             self._mode.optionsHelp['help'] = 'shows this help message'
 
         matchers = [createHandle(f) 
-                    for f in (self._matchers or self.getMatcherMethods())]
+                    for f in self.getMatcherMethods()]
         
         commons = [createHandle(f) 
-                   for f in (self._commons or self.getCommonMatcherMethods())]
+                   for f in self.getCommonMatcherMethods()]
         
         if self._defaultHelp:
             #cannot decorate directly printHelp, any instance would
@@ -1224,16 +1210,18 @@ class UsageException(OptionMatcherException):
     
 def optmatcher(flags=None, options=None, intOptions=None,
                floatOptions=None, prefixes=None, renamePars=None,
-               priority=None):
+               priority=None, exclusive=False):
     '''Decorator defining a function / method as optmatcher choice'''
     
     return Decoration.decorate(False, flags, options, intOptions,
-                                floatOptions, prefixes, renamePars, priority)
+                               floatOptions, prefixes, renamePars, priority,
+                               exclusive)
 
 def optset(flags=None, options=None, intOptions=None,
            floatOptions=None, prefixes=None, renamePars=None,
-           priority=None):
+           priority=None, applies=None):
     '''Decorator defining a function / method as optset choice'''
     
     return Decoration.decorate(True, flags, options, intOptions,
-                               floatOptions, prefixes, renamePars, priority)
+                               floatOptions, prefixes, renamePars, priority,
+                               applies)

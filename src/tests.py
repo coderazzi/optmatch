@@ -975,62 +975,6 @@ class OptMatcherTests(Tests):
                                  process([None, '/opt:23', 'file']),
                                            ('23', 'file')) 
 
-    def test2011(self):
-        '''specifying external common handler'''
-        
-        class Any(object):
-            
-            @staticmethod
-            def specificCommonHandler(oOption):
-                Any.oOption = oOption
-            
-        class Simple(OptionMatcher):
-            
-            @optmatcher
-            def handle(self, arg):
-                return Any.oOption, arg
-            
-        s = Simple()
-        s.setMatchers(None, [Any.specificCommonHandler])
-        self.assertEquals(s.process([None, '-o23', 'file']), ('23', 'file')) 
-
-    def test2012(self):
-        '''specifying external handlers as methods'''
-        
-        class Any(object):
-            
-            @staticmethod
-            def myOwnHandler(oOption, par):
-                return oOption, par
-            
-        s = OptionMatcher()
-        s.setMatchers([Any.myOwnHandler])
-        self.assertEquals(s.process([None, '-o23', 'file']), ('23', 'file')) 
-
-    def test2021(self):
-        '''specifying static method as command handler'''
-        
-        class Simple(object):
-            
-            @staticmethod        
-            def handle(f):
-                return f
-            
-        s = OptionMatcher()
-        s.setMatchers([Simple.handle])
-        self.assertEquals(s.process([None, 'ok']), 'ok')
-
-    def test2022(self):
-        '''specifying incorrect flags on matcher set using setMatchers'''
-        
-        def work(aFlag, aOption): pass
-        
-        s = OptionMatcher()
-        s.setMatchers([work])
-        self.assertRaiseArg(OptionMatcherException,
-                            'Repeated option "a" in function work',
-                            s.process, [None])
-
     def test2101(self):
         '''using several common matchers'''
         
