@@ -5,7 +5,7 @@ Author:  Luis M. Pena <dr.lu@coderazzi.net>
 Site:    www.coderazzi.net/python/optmatch
 """
 
-__version__ = '0.8.2'
+__version__ = '0.8.4'
 
 __all__ = ['optset', 'optmatcher',
            'OptionMatcher', 'OptionMatcherException', 'UsageException']
@@ -39,7 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import re
 
-COMMA_SPLIT = re.compile('\\s*,\\s*')
+_COMMA_SPLIT = re.compile('\\s*,\\s*')
 
 class Decoration(object):
     '''
@@ -267,6 +267,12 @@ class ArgumentInfo(object):
             default = ''
         return format % (self._getPrefix(), self.name,
                          self._getSuffix(), default)
+        
+    def hasDefaultValue(self):
+        return self.defaultProvided
+
+    def unsetDefaultValue(self):
+        self.defaultProvided = False
 
     def setDefaultValue(self, defaultValue):
         '''Sets the default value, even if it is None'''
@@ -280,7 +286,15 @@ class ArgumentInfo(object):
     def _getSuffix(self, name=None):
         '''This is the prefix for the argument (=MODE, i.e.)'''
         return ''
+
+
+class VarArgumentInfo(ArgumentInfo):
+    
+    def __init__(self):
+        self.defaultProvided = True
         
+    def __str__(self):
+        return '...'        
 
 class FlagInfo(ArgumentInfo):
     '''Flags are arguments with aliases, and with a prefix (--, i.e.)'''
@@ -426,7 +440,7 @@ class OptMatcherInfo(object):
             ret = {}
             if decoration:
                 try:
-                    defs = COMMA_SPLIT.split(decoration.strip())
+                    defs = _COMMA_SPLIT.split(decoration.strip())
                 except:
                     raise OptionMatcherException('Invalid definition')
                 for d in defs:
@@ -497,9 +511,9 @@ class OptMatcherInfo(object):
         '''Returns whether it accepts *vars'''
         return self.vararg > 0
     
-    def getVKwargsSupport(self):
-        '''Returns whether it accepts *vars and **kargs argument'''
-        return self.supportVargs(), isinstance(self.kwargs, dict)
+    def supportsKWArgs(self):
+        '''Returns whether it accepts **kargs argument'''
+        return isinstance(self.kwargs, dict)
     
     def getOptions(self):
         '''Returns the defined flags, options and prefixes 
@@ -833,15 +847,13 @@ class OptMatcherHandler(OptMatcherInfo):
 class UsageAccessor(object):
     '''Class to access and to format usage info'''
     
-    def __init__(self, handlers, commons, mode):
+    def __init__(self, handlers, mode):
         self.mode = mode
-        self.handlers = handlers
-        self.commons = commons        
-        self.content = []
+        self.handlers = handlers #each is a list [matcher, optsets...]
         self.reset()
-        self.commonOptions = self._getOptionsMap(self.commons, {})
         
-    def getUsageString(self, width=72, column=24, ident=2):
+    def getUsageString(self, width=72, column=24, ident=2,
+                       includeUsage=True, includeAlternatives=True):
         '''Generic method to print the usage. By default, the window
         output is limited to 72 characters, with information for each option
         positioned on the column 24.
@@ -850,34 +862,35 @@ class UsageAccessor(object):
         if not self.handlers:
             self.add('Error, no usage configured')
         else:
-            self.add('Usage:')
             options = self.getAllOptions()
             alternatives = self.getAlternatives()
-            if alternatives == 1:
-                #if there is one single alternative, it is shown fully
-                #expanded, with options and default values
-                self.add(self.getOptions(0, True) + self.getParameters(0))
-            else:
-                #Otherwise, getAllParameters provide the intersection of names
-                #among all alternatives
-                if options:
-                    self.add('[common options]')
-                self.add(self.getAllParameters())
+            if includeUsage:
+                self.add('Usage:')
+                if alternatives == 1:
+                    #if there is one single alternative, it is shown fully
+                    #expanded, with options and default values
+                    self.add(self.getOptions(0, True) + self.getParameters(0))
+                else:
+                    #Otherwise, getAllParameters provide the intersection of names
+                    #among all alternatives
+                    if options:
+                        self.add('[common options]')
+                    self.add(self.getAllParameters())
+                self.addLine()
             if options:
                 #in any case, aliases and doc for each option is shown next
-                self.addLine()
                 self.addLine('options:')
                 for each in options:
                     self.addLine(each.aliasesAsStr(), ident)
                     doc = each.getDoc()
                     if doc:
                         self.add(doc, column)
-            if alternatives > 1:
+            if includeAlternatives and alternatives > 1:
                 #finally, all the alternatives, fully expanded
                 self.addLine()
                 self.addLine('alternatives:')
                 for i in range(alternatives):
-                    content = self.getOptions(i, True) + self.getParameters(i)
+                    content = self.getOptions(i) + self.getParameters(i)
                     self.addLine()
                     self.addLine('*')
                     self.add(content, ident)
@@ -902,57 +915,41 @@ class UsageAccessor(object):
             return (A < B and - 1) or (A > B and 1) or 0
         
         #Search is done over all the matchers, with priority on the common
-        return self._getOptions(self.handlers, self.commonOptions,
-                                True, compare)
+        options = {}
+        for i in range(self.getAlternatives()):
+            self._buildOptions(i, options)
+        ret = options.values()
+        ret.sort(compare)
+        return ret
 
-    def getOptions(self, alternative, includeCommon):
+    def getOptions(self, alternative):
         '''Returns -as FlagInfo instances-, all the flags/options/prefixes
-        that were defined for the given matcher, including, if required,
+        that were defined for the given matcher, including
         those associated to the common matcher. The list
-        will be sorted alphabetically, listing first the optional options
+        will be sorted alphabetically, listing last the optional options
         '''
         def compare(a, b):
             #first: give less weight to instances withour default values
             if a.defaultProvided != b.defaultProvided:
-                return (a.defaultProvided and - 1) or 1
+                return (a.defaultProvided and 1) or - 1
             #then: alphabetical order, case insensitive
             A = a.name.lower()    
             B = b.name.lower()
             return (A < B and - 1) or (A > B and 1) or 0
         
-        handlers = (alternative != -1 and [self.handlers[alternative]]) or []
-                    
-        return self._getOptions(handlers,
-                                self.commonOptions,
-                                includeCommon,
-                                compare)
-
-    def getCommonOptions(self):
-        '''Returns -as FlagInfo instances-, all the flags/options/prefixes
-        that were defined for the common matcher. The list
-        will be sorted alphabetically, listing first the optional options
-        '''
-        return self.getOptions(-1, True)
-    
-    def _getOptions(self, handlers, base, union, compare):
-        #iterate over the options of every handler, adding the option if not
-        #yet there
-        all = self._getOptionsMap(handlers, base)
-        if union:
-            all.update(base)
-        ret = all.values()
+        ret = self._buildOptions(alternative, {}).values()
         ret.sort(compare)
         return ret
-
-    def _getOptionsMap(self, handlers, base):
-        #iterate over the options of every handler, adding the option if not
-        #yet there
-        all = {}
-        for each in handlers:
-            for option in each.getOptions():
-                if not option.name in all and not option.name in base:
-                    all[option.name] = option
-        return all
+        
+    def _buildOptions(self, alternative, options):
+        #Adds all the options of the given alternative to the passed options
+        for h in self.handlers[alternative]:
+            for option in h.getOptions():
+                if not option.name in options:
+                    options[option.name] = option
+            if h.supportsKWArgs():
+                break
+        return options
 
     def getAlternatives(self):
         '''Returns the number of provided matchers'''
@@ -960,55 +957,57 @@ class UsageAccessor(object):
     
     def getDoc(self, alternative):
         '''Returns the documentation for the given matcher'''
-        return self.handlers[alternative].getDoc()
+        return self.handlers[alternative][0].getDoc()
     
     def getParameters(self, alternative):
         '''Returns the parameters (as ArgumentInfo) for the given matcher'''
-        handlers = self.commons + [self.handlers[alternative]]
         ret = []
-        for h in handlers: #common, first (if defined), then handlers
+        for h in self.handlers[alternative]: #matcher goes always first
             ret.extend(h.getParameters())
             if h.supportVargs():
                 #We break here, if a matcher defines parameters,
                 #they will be never handled, as the common matcher would
                 #consume them first
-                ret.append(ArgumentInfo('...', self.mode))
+                ret.append(VarArgumentInfo())
                 break
+        #if a parameter is mandatory, none of the previous ones can be optional
+        ret.reverse()
+        set = False
+        for i in ret:
+            if not set:
+                set = not i.hasDefaultValue()
+            else:
+                i.unsetDefaultValue()
+        ret.reverse()
         return ret
     
     def getAllParameters(self):
         '''Returns all the expected parameters (as strings)
         The list will include the number of parameter of the matcher with
-         highest number (plus the parameters in the common one)
+         more mandatory parameters (plus the parameters in the common one)
         '''
-        args, vararg = [], False
-        #we get the parameters required by all the handlers.
-        #By default, they are named arg1, arg2, etc
-        #if all handlers define one such parameter commonly, we name it so 
-        for each in self.handlers:
-            pars = each.getParameters()
-            for l, (a, p) in enumerate(zip(args, pars)):
-                #set the name of each argument as passed to a matcher
-                #if another matcher differs on the name of a common argument,
-                #just name it generically as 'arg'number
-                if a != p.name:
-                    args[l] = 'arg%d' % (l + 1)
-            args += [p.name for p in pars[len(args):]]
-            if each.supportVargs():
-                vararg = True
-                break
-        commonArgs = []
-        for each in self.commons:
-            commonArgs = commonArgs + [p.name for p in each.getParameters()]
-            if each.supportVargs(): 
-                #in this case, the parameters of no matcher will be used,
-                #because the matcher would consume them first
-                vararg = True
-                args = []
-                break
-        if vararg:
-            args.append('...')
-        return commonArgs + args
+        ret, allPars, varargs = [], [], False
+        for c, handlers in enumerate(self.handlers):
+            pars = []
+            for h in handlers:
+                pars.extend(h.getParameters())
+                if h.supportVargs():
+                    varargs = True
+                    break
+            allPars.append(pars)
+        for c, each in enumerate(map(None, * allPars)):
+            name = None
+            for i in each:
+                if i:
+                    if not name:
+                        name = i.name
+                    elif name != i.name:
+                        name = 'arg%d' % (c + 1)
+                        break
+            ret.append(name)  
+        if varargs:
+            ret.append(str(VarArgumentInfo()))                             
+        return ' '.join(ret)
     
     def reset(self, width=72):
         '''Format method, clears the content'''
@@ -1134,8 +1133,10 @@ class OptionMatcher (object):
     
     def getUsage(self):
         '''Returns an Usage object to handle the usage info'''
-        matcherHandlers, commonHandlers = self._createHandlers()        
-        return UsageAccessor(matcherHandlers, commonHandlers, self._mode)
+        matcherHandlers, commonHandlers = self._createHandlers()
+        handlers = [[m] + filter(lambda x: x.appliesToMatcher(m),
+                                 commonHandlers) for m in matcherHandlers]
+        return UsageAccessor(handlers, self._mode)
     
     def printHelp(self):
         '''shows the help message'''
@@ -1217,7 +1218,8 @@ class OptionMatcher (object):
             #cannot decorate directly printHelp, any instance would
             #get the decoration!
             f = lambda : self.printHelp()
-            matchers.append(createHandle(optmatcher(flags='help')(f)))
+            matchers.append(createHandle(optmatcher(
+                                         flags='help', exclusive=True)(f)))
 
         return matchers, commons
     
@@ -1270,7 +1272,7 @@ def optset(flags=None, options=None, intOptions=None,
         #convert applies into a regular expression
         try:
             applies = re.compile('^(' + '|'.join([each.replace('*', '.*') 
-                for each in COMMA_SPLIT.split(applies.strip())]) + ')$')
+                for each in _COMMA_SPLIT.split(applies.strip())]) + ')$')
         except:
             raise OptionMatcherException('Invalid applies value: ' + applies)
     

@@ -693,15 +693,15 @@ class OptMatcherTests(Tests):
             
             def __init__(self):
                 OptionMatcher.__init__(self)
-                self.v=None
+                self.v = None
             
             @optset
             def common_options(self, vFlag):
-                self.v='invoked'
+                self.v = 'invoked'
             
             @optmatcher
             def handle(self, par):
-                return self.v==None
+                return self.v == None
             
         self.failUnless(Simple().process([None, 'file']))
         
@@ -713,7 +713,7 @@ class OptMatcherTests(Tests):
             
             @optset
             def common_options(self, vFlag=True):
-                self.v=vFlag
+                self.v = vFlag
             
             @optmatcher
             def handle(self, par):
@@ -956,7 +956,7 @@ class OptMatcherTests(Tests):
             
         self.assertRaiseArg(UsageException,
                             'Unexpected flag d in argument -d',
-                            Simple(publicNames={'d':'dry-run'}).process, 
+                            Simple(publicNames={'d':'dry-run'}).process,
                             [None, '-d'])
 
     def test1103(self):
@@ -968,9 +968,9 @@ class OptMatcherTests(Tests):
             def handle(self, dFlag, oFlag): pass
             
         self.assertRaiseArg(OptionMatcherException,
-                            'o cannot be a public rename, already defined '+
+                            'o cannot be a public rename, already defined ' + 
                             'in method Simple.handle',
-                            Simple(publicNames={'d':'o'}).process, 
+                            Simple(publicNames={'d':'o'}).process,
                             [None])
 
     def test1104(self):
@@ -982,9 +982,9 @@ class OptMatcherTests(Tests):
             def handle(self, first, second): pass
             
         self.assertRaiseArg(OptionMatcherException,
-                            'second cannot be a public rename, already '+
+                            'second cannot be a public rename, already ' + 
                             'defined as parameter in method Simple.handle',
-                            Simple(publicNames={'first':'second'}).process, 
+                            Simple(publicNames={'first':'second'}).process,
                             [None])
 
     def test1105(self):
@@ -996,7 +996,7 @@ class OptMatcherTests(Tests):
             def handle(self, dFlag):
                 return dFlag
             
-        self.failUnless(Simple(publicNames={'d':'dry-run'}, 
+        self.failUnless(Simple(publicNames={'d':'dry-run'},
                                aliases={'r':'dry-run'}
                                ).process([None, '-r']))                                  
 
@@ -1427,18 +1427,18 @@ class OptMatcherTestsOnDecoration(Tests):
             
             def __init__(self):
                 OptionMatcher.__init__(self)
-                self.o=False
+                self.o = False
             
             @optset(priority=2)
             def handleA(self, oFlag):
-                self.o=oFlag
+                self.o = oFlag
             
             @optset(priority=1)
             def handleB(self, kFlag):
                 try:
-                    self.k=self.o
+                    self.k = self.o
                 except:
-                    self.k=False
+                    self.k = False
             
             @optmatcher
             def handle(self): 
@@ -1453,18 +1453,18 @@ class OptMatcherTestsOnDecoration(Tests):
             
             def __init__(self):
                 OptionMatcher.__init__(self)
-                self.o=False
+                self.o = False
             
             @optset(priority=1)
             def handleA(self, oFlag):
-                self.o=oFlag
+                self.o = oFlag
             
             @optset(priority=2)
             def handleB(self, kFlag):
                 try:
-                    self.k=self.o
+                    self.k = self.o
                 except:
-                    self.k=False
+                    self.k = False
             
             @optmatcher
             def handle(self): 
@@ -1591,24 +1591,102 @@ class UsageTests(Tests):
         receivedSplit = received.split('\n')
         expectedSplit = expected.split('\n')
         for i, (lineR, lineE) in enumerate(zip(receivedSplit, expectedSplit)):
-            if receivedSplit!=expectedSplit:
-                print 'Line',i+1, 'Received:',lineR
-                print 'Line',i+1, 'Expected:',lineE
-                self.fail('Line '+str(i+1)+' '+lineR+'\nAnd expected: '+lineE)
-        self.failUnless(len(receivedSplit)==len(expectedSplit))
-    
+            if lineR != lineE:
+                print 'Line', i + 1, 'Received:', lineR
+                print 'Line', i + 1, 'Expected:', lineE
+                self.fail('Line ' + str(i + 1) + ' ' + lineR + 
+                          '\nAnd expected: ' + lineE)
+        self.failUnless(len(receivedSplit) == len(expectedSplit))
+        
+    def convertList(self, list):
+        return ' '.join([str(l) for l in list])
+        
     def test6001(self):
+        
+        class Simple(OptionMatcher):
+            
+            @optmatcher
+            def handle(self, vFlag, oOption, par1, par2): pass
+    
+            @optmatcher
+            def handle2(self, vFlag, kFlag, par1, *args): pass
+            
+        usage = Simple().getUsage()
+        self.failUnless(usage.getAllParameters() == 
+                        'par1 par2 ...')
+        self.failUnless(self.convertList(usage.getParameters(0))
+                        == 'par1 par2')
+        self.failUnless(self.convertList(usage.getParameters(1))
+                        == 'par1 ...')
+        self.failUnless(self.convertList(usage.getAllOptions()) == 
+                        '-h -k -v -o O')
+    
+    def test6002(self):
+        
+        class Simple(OptionMatcher):
+            
+            @optset
+            def other(self, vFlag, arg, rOption='r'): pass
+            
+            @optmatcher
+            def handle(self, vFlag, oOption, par1, par2): pass
+    
+            @optmatcher
+            def handle2(self, vFlag, kFlag, par1, *args): pass
+            
+        usage = Simple().getUsage()
+        self.failUnless(self.convertList(usage.getParameters(0))
+                        == 'par1 par2 arg')
+        self.failUnless(self.convertList(usage.getParameters(1))
+                        == 'par1 ...')
+        self.failUnless(self.convertList(usage.getParameters(2))
+                        == '')
+        self.failUnless(usage.getAllParameters() == 
+                        'par1 par2 arg ...')
+        self.failUnless(self.convertList(usage.getAllOptions()) == 
+                        '-h -k -v -o O [-r R (r)]')
+    
+    def test6003(self):
+        
+        class Simple(OptionMatcher):
+            
+            @optset
+            def other(self, vFlag, arg, rOption='r'): pass
+            
+            @optmatcher(exclusive=True)
+            def handle(self, vFlag, oOption, par1, par2): pass
+    
+            @optmatcher
+            def handle2(self, vFlag, kFlag, par1, *args): pass
+            
+        usage = Simple().getUsage()
+        self.failUnless(self.convertList(usage.getParameters(0))
+                        == 'par1 par2')
+        self.failUnless(self.convertList(usage.getParameters(1))
+                        == 'par1 ...')
+        self.failUnless(self.convertList(usage.getParameters(2))
+                        == '')
+        self.failUnless(usage.getAllParameters() == 
+                        'par1 par2 ...')
+        self.failUnless(self.convertList(usage.getAllOptions()) == 
+                        '-h -k -v -o O [-r R (r)]')
+    
+    def test6004(self):
         '''Global help test'''
         
         class Simple(OptionMatcher):
             
             @optset
             def handle(self, commonFlag, dPrefix, bFlag, commonOptOption=23,
-                       commonPar='po' , *gh): 
+                       commonPar='po'): 
+                pass
+            
+            @optset(applies='handleB, handleC')
+            def handle2(self, common2Flag, addpar='3'): 
                 pass
             
             @optmatcher
-            def handleA(self, fOption, DPrefix, one, two, iOptionInt=34,
+            def handleA(self, fOption, DPrefix, one, two='2', iOptionInt=34,
                         wFlag=True, *args):
                 '''Executes this program repeatedly until everybody is tired''' 
                 pass
@@ -1618,7 +1696,7 @@ class UsageTests(Tests):
                         iOptionInt=68, verboseFlag=False): 
                 pass
         
-            @optmatcher
+            @optmatcher(exclusive=True)
             def handleC(self, pFlag, one, three, four, iOptionInt=68,
                         verboseFlag=False): 
                 pass
@@ -1642,11 +1720,12 @@ class UsageTests(Tests):
         usage = Simple(aliases=aliases, optionsHelp=info,
                      optionVarNames=vars, defaultHelp=False).getUsage()    
         
-        expected = '''Usage: [common options] commonPar ...
+        expected = '''Usage: [common options] arg1 arg2 arg3 addpar ...
 
 options:
   -b
   --common
+  --common2
   -p
   --super
   -v, --verbose         lot of useless info is output
@@ -1663,22 +1742,59 @@ options:
 
 alternatives:
 
-* [--commonOpt=COMMONOPT (23)] [-i IN (34)] [-w (True)] -b --common
-  -D DEFINE -d DX -f FILE [commonPar (po)] ...
+* -b --common -D DEFINE -d DX -f FILE [--commonOpt=COMMONOPT (23)]
+  [-i IN (34)] [-w (True)] one [two (2)] ...
                         Executes this program repeatedly until everybody
                         is tired
 
-* [--commonOpt=COMMONOPT (23)] [-i IN (68)] [-v (False)] -b --common
-  -d DX -m MODE -p [commonPar (po)] ...
+* -b --common --common2 -d DX -m MODE -p [--commonOpt=COMMONOPT (23)]
+  [-i IN (68)] [-v (False)] one [commonPar (po)] [addpar (3)]
 
-* [--commonOpt=COMMONOPT (23)] [-i IN (68)] [-v (False)] -b --common
-  -d DX -p [commonPar (po)] ...
+* --common2 -p [-i IN (68)] [-v (False)] one three four [addpar (3)]
 
-* [--commonOpt=COMMONOPT (23)] -b --common -d DX --super
-  [commonPar (po)] ...'''
+* -b --common -d DX --super [--commonOpt=COMMONOPT (23)]
+  [commonPar (po)]'''
         
         self.checkString(usage.getUsageString(), expected)
         
+    def test6005(self):
+        
+        class Simple(OptionMatcher):
+            
+            @optset
+            def other(self, vFlag, arg, rOption='r'): pass
+            
+            @optmatcher(exclusive=True)
+            def handle(self, vFlag, oOption, par1, par2): pass
+    
+            @optmatcher
+            def handle2(self, vFlag, kFlag, par1, *args): pass
+            
+        aliases = {'v':'verbose',
+                   'o':'open'}
+        info = {'v':'lot of useless info is output',
+                'o':'sets open mode'}
+        vars = {'o':'MODE'}
+        usage = Simple(aliases=aliases, optionsHelp=info,
+                     optionVarNames=vars, defaultHelp=True).getUsage()
+        expected = '''Usage: [common options] par1
+par2 ...
+
+options:
+     -h, --help
+               shows this help
+               message
+     -k
+     -v, --verbose
+               lot of useless
+               info is output
+     -o MODE, --open=MODE
+               sets open mode
+     -r R'''
+
+        self.checkString(usage.getUsageString(width=30, column=15, ident=5,
+                         includeAlternatives=False), expected)
+    
     def test6011(self):
         '''Checking default help'''
 
