@@ -497,6 +497,17 @@ class InternalTests(Tests):
                         ch.handleArg, arg)
 
 
+    def test0621(self):
+        '''Checking camel casing'''
+        
+        def method(dryRunFlag): pass 
+        
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--dry-run'], m, True)
+        ch = OptMatcherHandler(method, m)
+        self.failUnless(not ch.handleArg(arg))
+
+
 class OptMatcherTests(Tests):
     '''Tests directly on the OptionMatcher interface'''
 
@@ -1602,6 +1613,7 @@ class UsageTests(Tests):
         return ' '.join([str(l) for l in list])
         
     def test6001(self):
+        '''Basic help tests'''
         
         class Simple(OptionMatcher):
             
@@ -1622,6 +1634,7 @@ class UsageTests(Tests):
                         '-h -k -v -o O')
     
     def test6002(self):
+        '''Basic help tests, added optset'''
         
         class Simple(OptionMatcher):
             
@@ -1647,6 +1660,7 @@ class UsageTests(Tests):
                         '-h -k -v -o O [-r R (r)]')
     
     def test6003(self):
+        '''Basic help tests, added optsetm, with exclusive on optmatcher'''
         
         class Simple(OptionMatcher):
             
@@ -1730,7 +1744,7 @@ options:
   --super
   -v, --verbose         lot of useless info is output
   -w
-  --commonOpt=COMMONOPT
+  --common-opt=COMMON_OPT
   -D DEFINE, --define=DEFINE
                         create a new prefix
   -d DX
@@ -1742,22 +1756,23 @@ options:
 
 alternatives:
 
-* -b --common -D DEFINE -d DX -f FILE [--commonOpt=COMMONOPT (23)]
+* -b --common -D DEFINE -d DX -f FILE [--common-opt=COMMON_OPT (23)]
   [-i IN (34)] [-w (True)] one [two (2)] ...
                         Executes this program repeatedly until everybody
                         is tired
 
-* -b --common --common2 -d DX -m MODE -p [--commonOpt=COMMONOPT (23)]
+* -b --common --common2 -d DX -m MODE -p [--common-opt=COMMON_OPT (23)]
   [-i IN (68)] [-v (False)] one [commonPar (po)] [addpar (3)]
 
 * --common2 -p [-i IN (68)] [-v (False)] one three four [addpar (3)]
 
-* -b --common -d DX --super [--commonOpt=COMMONOPT (23)]
+* -b --common -d DX --super [--common-opt=COMMON_OPT (23)]
   [commonPar (po)]'''
         
         self.checkString(usage.getUsageString(), expected)
         
     def test6005(self):
+        '''Additional global help test'''
         
         class Simple(OptionMatcher):
             
@@ -1795,6 +1810,27 @@ options:
         self.checkString(usage.getUsageString(width=30, column=15, ident=5,
                          includeAlternatives=False), expected)
     
+    def test6006(self):
+        '''Verifying optionality on arguments'''
+        
+        class Simple(OptionMatcher):
+            
+            @optset
+            def other(self, mandatoryPar): pass
+            
+            @optmatcher
+            def handle(self, par1, optionalPar='o'): pass
+    
+            @optmatcher(exclusive=True)
+            def handle2(self, par1, optionalPar='o'): pass
+    
+        usage = Simple().getUsage()
+        #note that optionalPar in handle is not treated as optional anymore
+        self.failUnless(self.convertList(usage.getParameters(0))
+                        == 'par1 optionalPar mandatoryPar')
+        self.failUnless(self.convertList(usage.getParameters(1))
+                        == 'par1 [optionalPar (o)]')
+
     def test6011(self):
         '''Checking default help'''
 

@@ -268,12 +268,6 @@ class ArgumentInfo(object):
         return format % (self._getPrefix(), self.name,
                          self._getSuffix(), default)
         
-    def hasDefaultValue(self):
-        return self.defaultProvided
-
-    def unsetDefaultValue(self):
-        self.defaultProvided = False
-
     def setDefaultValue(self, defaultValue):
         '''Sets the default value, even if it is None'''
         self.defaultProvided = True
@@ -295,6 +289,7 @@ class VarArgumentInfo(ArgumentInfo):
         
     def __str__(self):
         return '...'        
+
 
 class FlagInfo(ArgumentInfo):
     '''Flags are arguments with aliases, and with a prefix (--, i.e.)'''
@@ -339,7 +334,7 @@ class OptionInfo(FlagInfo):
                         return self.mode.varNames[alias]
                     except KeyError:
                         pass
-            return self.aliases[-1].upper()
+            return self.aliases[-1].upper().replace('-','_')
                                      
         return self.mode.getDelimiter(name or self.name) + getVariableName()
     
@@ -412,10 +407,22 @@ class OptMatcherInfo(object):
         
     def _initializeParametersFromSignature(self, vars): 
         #Initializes the metadata from the function's parameter names
+
+        def camelCaseChange(what):
+            '''Converts camelCase into hyphenation'''
+            ret, transform = [], False
+            for i in what:
+                if transform and i.isupper():
+                    ret.append('-')
+                    i = i.lower()
+                ret.append(i)
+                transform = i.islower()
+            return ''.join(ret)
+    
         for var in vars:
             match = self.FLAG_PATTERN.match(var)
             if match:
-                useName, what = match.group(1), match.group(2)
+                useName, what = camelCaseChange(match.group(1)), match.group(2)
                 if what == 'Flag':
                     self.flags[useName] = self.lastArg
                 elif what == 'Prefix':
@@ -710,7 +717,7 @@ class OptMatcherHandler(OptMatcherInfo):
                                 None, None)
             args.append(value)
         #if the function defined a *arg parameter, it can handle the 
-        #  remaining provided parameters
+        # remaining provided parameters (if not, we would had already an error)
         args.extend(parameters)
         #It must be still checked the orphan flags' variables
         #These are not passed to the method, but must have been provided to 
@@ -852,6 +859,57 @@ class UsageAccessor(object):
         self.handlers = handlers #each is a list [matcher, optsets...]
         self.reset()
         
+    def getContent(self):
+        '''Format method, returns the current content'''
+        return '\n'.join(self.content)
+        
+    def reset(self, width=72):
+        '''Format method, clears the content'''
+        self.content = ['']
+        self.width = width
+        
+    def addLine(self, content=None, column=0):
+        '''
+        Format method, adds a new line, and places the content on the
+        given column. See add method 
+        '''
+        self.content.append('')
+        if content:
+            self.add(content, column)
+        
+    def add(self, content, column=0):
+        '''
+        Format method, adds content on the current line at the given position.
+        If the current content already covers that column, a new one is 
+        inserted. 
+        If the content spawns multiple lines, each start at the 
+        same position
+        The content can be a string, or a list of objects. As a list 
+        of objects, splitting on multiple lines can only happen for full
+        objects; for strings, it is done at each space character.
+        No care is taken for any special characters, specially '\n'
+        '''
+        if isinstance(content, str):
+            content = content.split(' ')
+        current = self.content.pop()
+        if column > 0 and current and len(current) + 1 > column:
+            self.content.append(current)
+            current = ''
+        started = not column and len(current.strip()) > 0
+        current += ' ' * (column - len(current))
+        for each in content:
+            each = str(each)
+            if started and (len(current) + len(each) >= self.width):
+                self.content.append(current)
+                current = ' ' * column
+                started = False
+            if each or started:
+                if started:
+                    current += ' '
+                current += each
+                started = True            
+        self.content.append(current.rstrip())                
+
     def getUsageString(self, width=72, column=24, ident=2,
                        includeUsage=True, includeAlternatives=True):
         '''Generic method to print the usage. By default, the window
@@ -871,14 +929,14 @@ class UsageAccessor(object):
                     #expanded, with options and default values
                     self.add(self.getOptions(0, True) + self.getParameters(0))
                 else:
-                    #Otherwise, getAllParameters provide the intersection of names
-                    #among all alternatives
+                    #Otherwise, getAllParameters provide the intersection of
+                    #names among all alternatives
                     if options:
                         self.add('[common options]')
                     self.add(self.getAllParameters())
                 self.addLine()
             if options:
-                #in any case, aliases and doc for each option is shown next
+                #aliases and doc for each option is shown next
                 self.addLine('options:')
                 for each in options:
                     self.addLine(each.aliasesAsStr(), ident)
@@ -899,6 +957,62 @@ class UsageAccessor(object):
                         self.add(doc, column)
         return self.getContent()
         
+    def getAlternatives(self):
+        '''Returns the number of provided matchers'''
+        return len(self.handlers)
+    
+    def getDoc(self, alternative):
+        '''Returns the documentation for the given matcher'''
+        return self.handlers[alternative][0].getDoc()
+    
+    def getParameters(self, alternative):
+        '''Returns the parameters (as ArgumentInfo) for the given matcher'''
+        ret = []
+        for h in self.handlers[alternative]: #matcher goes always first
+            ret.extend(h.getParameters())
+            if h.supportVargs():
+                #We break here, if a matcher defines parameters,
+                #they will be never handled, as the common matcher would
+                #consume them first
+                ret.append(VarArgumentInfo())
+                break
+        #if a parameter is mandatory, none of the previous ones can be optional
+        set = False
+        for i in range(len(ret) - 1, -1, -1):
+            if not set:
+                set = not ret[i].defaultProvided
+            else:
+                ret[i].defaultProvided = False
+        return ret
+    
+    def getAllParameters(self):
+        '''Returns all the expected parameters (as strings)
+        The list will include the number of parameter of the matcher with
+         more mandatory parameters (plus the parameters in the common one)
+        '''
+        ret, allPars, varargs = [], [], False
+        for c, handlers in enumerate(self.handlers):
+            pars = []
+            for h in handlers:
+                pars.extend(h.getParameters())
+                if h.supportVargs():
+                    varargs = True
+                    break
+            allPars.append(pars)
+        for c, each in enumerate(map(None, * allPars)):
+            name = None
+            for i in each:
+                if i:
+                    if not name:
+                        name = i.name
+                    elif name != i.name:
+                        name = 'arg%d' % (c + 1)
+                        break
+            ret.append(name)  
+        if varargs:
+            ret.append(str(VarArgumentInfo()))                             
+        return ' '.join(ret)
+    
     def getAllOptions(self):
         '''Returns -as FlagInfo instances-, all the flags/options/prefixes
         that were defined for any of the provided matchers. The list
@@ -951,116 +1065,7 @@ class UsageAccessor(object):
                 break
         return options
 
-    def getAlternatives(self):
-        '''Returns the number of provided matchers'''
-        return len(self.handlers)
-    
-    def getDoc(self, alternative):
-        '''Returns the documentation for the given matcher'''
-        return self.handlers[alternative][0].getDoc()
-    
-    def getParameters(self, alternative):
-        '''Returns the parameters (as ArgumentInfo) for the given matcher'''
-        ret = []
-        for h in self.handlers[alternative]: #matcher goes always first
-            ret.extend(h.getParameters())
-            if h.supportVargs():
-                #We break here, if a matcher defines parameters,
-                #they will be never handled, as the common matcher would
-                #consume them first
-                ret.append(VarArgumentInfo())
-                break
-        #if a parameter is mandatory, none of the previous ones can be optional
-        ret.reverse()
-        set = False
-        for i in ret:
-            if not set:
-                set = not i.hasDefaultValue()
-            else:
-                i.unsetDefaultValue()
-        ret.reverse()
-        return ret
-    
-    def getAllParameters(self):
-        '''Returns all the expected parameters (as strings)
-        The list will include the number of parameter of the matcher with
-         more mandatory parameters (plus the parameters in the common one)
-        '''
-        ret, allPars, varargs = [], [], False
-        for c, handlers in enumerate(self.handlers):
-            pars = []
-            for h in handlers:
-                pars.extend(h.getParameters())
-                if h.supportVargs():
-                    varargs = True
-                    break
-            allPars.append(pars)
-        for c, each in enumerate(map(None, * allPars)):
-            name = None
-            for i in each:
-                if i:
-                    if not name:
-                        name = i.name
-                    elif name != i.name:
-                        name = 'arg%d' % (c + 1)
-                        break
-            ret.append(name)  
-        if varargs:
-            ret.append(str(VarArgumentInfo()))                             
-        return ' '.join(ret)
-    
-    def reset(self, width=72):
-        '''Format method, clears the content'''
-        self.content = ['']
-        self.width = width
-        
-    def getContent(self):
-        '''Format method, returns the current content'''
-        return '\n'.join(self.content)
-        
-    def addLine(self, content=None, column=0):
-        '''
-        Format method, adds a new line, and places the content on the
-        given column. See add method 
-        '''
-        self.content.append('')
-        if content:
-            self.add(content, column)
-        
-    def add(self, content, column=0):
-        '''
-        Format method, adds content on the current line at the given position.
-        If the current content already covers that column, a new one is 
-        inserted. 
-        If the content spawns multiple lines, each start at the 
-        same position
-        The content can be a string, or a list of objects. As a list 
-        of objects, splitting on multiple lines can only happen for full
-        objects; for strings, it is done at each space character.
-        No care is taken for any special characters, specially '\n'
-        '''
-        if isinstance(content, str):
-            content = content.split(' ')
-        current = self.content.pop()
-        if column > 0 and current and len(current) + 1 > column:
-            self.content.append(current)
-            current = ''
-        started = not column and len(current.strip()) > 0
-        current += ' ' * (column - len(current))
-        for each in content:
-            each = str(each)
-            if started and (len(current) + len(each) >= self.width):
-                self.content.append(current)
-                current = ' ' * column
-                started = False
-            if each or started:
-                if started:
-                    current += ' '
-                current += each
-                started = True            
-        self.content.append(current.rstrip())                
-                
-                    
+                                    
 class OptionMatcher (object):
     ''' Class handling command line arguments by matching method parameters.
     It supports naturally the handling of mutually exclusive options.
@@ -1218,6 +1223,7 @@ class OptionMatcher (object):
             #cannot decorate directly printHelp, any instance would
             #get the decoration!
             f = lambda : self.printHelp()
+            f.__doc__ = self.printHelp.__doc__
             matchers.append(createHandle(optmatcher(
                                          flags='help', exclusive=True)(f)))
 
@@ -1269,8 +1275,9 @@ def optset(flags=None, options=None, intOptions=None,
     '''Decorator defining a function / method as optset choice'''
     
     if applies != None:
-        #convert applies into a regular expression
         try:
+            #convert applies into a regular expression, if possible
+            #i.e, handle, handleB* is converted into (handle|handleB.*)
             applies = re.compile('^(' + '|'.join([each.replace('*', '.*') 
                 for each in _COMMA_SPLIT.split(applies.strip())]) + ')$')
         except:
