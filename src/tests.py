@@ -4,30 +4,6 @@ from optmatch import CommandLine, OptMatcherHandler, OptionMatcher, UsageMode
 from optmatch import UsageException, OptionMatcherException 
 from optmatch import optmatcher, optset 
 
-#class MandatoryTests(unittest.TestCase):
-#
-#    def assertRaiseArg(self, exception, exStr, callable, *args, **kwargs):
-#        try:
-#            callable(*args, **kwargs)
-#            self.fail('Expected exception not raised')
-#        except exception, which:
-#            self.assertEqual(str(which), exStr)
-#            
-#    def test1104(self):
-#        '''Using publicNames, expected error when overriding parameter'''
-#        
-#        class Simple(OptionMatcher):
-#            
-#            @optmatcher
-#            def handle(self, first, second): pass
-#            
-#        self.assertRaiseArg(OptionMatcherException,
-#                            'second cannot be a public rename, already '+
-#                            'defined as parameter in method Simple.handle',
-#                            Simple(publicNames={'first':'second'}).process, 
-#                            [None])
-#
-#class Tests:
 class Tests(unittest.TestCase):
 
     def assertRaiseArg(self, exception, exStr, callable, *args, **kwargs):
@@ -616,7 +592,7 @@ class OptMatcherTests(Tests):
                           (True, True, 'file'))
 
     def test1023(self):
-        '''Use two flags, one parameter. Parameter provided between the flags'''
+        '''Use two flags, one parameter. Parameter provided between flags'''
         
         class Simple(OptionMatcher):
             
@@ -638,7 +614,7 @@ class OptMatcherTests(Tests):
             
         self.assertRaiseArg(UsageException,
                         'Unexpected argument -o after non option arguments',
-                        Simple().process, [None, '-v', 'file', '-o'], 
+                        Simple().process, [None, '-v', 'file', '-o'],
                         handleUsageProblems=False, gnu=True)
 
     def test1025(self):
