@@ -1147,7 +1147,7 @@ class OptionMatcher (object):
         '''shows the help message'''
         print self.getUsage().getUsageString()
         
-    def process(self, args, gnu=False, handleUsageProblems=False):
+    def process(self, args, gnu=False, handleUsageProblems=True):
         '''Processes the given command line arguments
         Param gnu determines gnu behaviour. Is True, no-option 
             arguments can be only specified latest

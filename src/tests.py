@@ -564,7 +564,8 @@ class OptMatcherTests(Tests):
             def handle(self, vFlag): pass
             
         self.assertRaiseArg(UsageException, 'Missing required flag v',
-                            Simple().process, [None])
+                            Simple().process, [None],
+                            handleUsageProblems=False)
 
     def test1012(self):
         '''Define a required flag, provided'''
@@ -587,7 +588,8 @@ class OptMatcherTests(Tests):
             def handle(self, vFlag): pass
             
         self.assertRaiseArg(UsageException, 'Unexpected flag o in argument -o',
-                            Simple().process, [None, '-v', '-o'])
+                            Simple().process, [None, '-v', '-o'],
+                            handleUsageProblems=False)
 
     def test1021(self):
         '''Use two flags, one parameter. Flags provided separately'''
@@ -636,7 +638,8 @@ class OptMatcherTests(Tests):
             
         self.assertRaiseArg(UsageException,
                         'Unexpected argument -o after non option arguments',
-                        Simple().process, [None, '-v', 'file', '-o'], gnu=True)
+                        Simple().process, [None, '-v', 'file', '-o'], 
+                        handleUsageProblems=False, gnu=True)
 
     def test1025(self):
         '''Flag, option, parameter, all provided'''
@@ -746,7 +749,8 @@ class OptMatcherTests(Tests):
             
         self.assertRaiseArg(UsageException,
                             'Missing required flag v',
-                            Simple().process, [None, '-o', 'file'])
+                            Simple().process, [None, '-o', 'file'],
+                            handleUsageProblems=False)
         
 
     def test1036(self):
@@ -880,7 +884,8 @@ class OptMatcherTests(Tests):
             def handle(self, valOptionInt): pass
             
         self.assertRaiseArg(UsageException, 'Incorrect value for val',
-                            Simple().process, [None, '--val=two'])
+                            Simple().process, [None, '--val=two'],
+                            handleUsageProblems=False)
 
     def test1053(self):
         '''Integer options, float for integer'''
@@ -893,7 +898,8 @@ class OptMatcherTests(Tests):
                 return True
             
         self.assertRaiseArg(UsageException, 'Incorrect value for val',
-                            Simple().process, [None, '--val=2.3'])
+                            Simple().process, [None, '--val=2.3'],
+                            handleUsageProblems=False)
 
     def test1054(self):
         '''Float options'''
@@ -917,7 +923,8 @@ class OptMatcherTests(Tests):
                 return True
             
         self.assertRaiseArg(UsageException, 'Incorrect value for val',
-                            Simple().process, [None, '--val=two'])
+                            Simple().process, [None, '--val=two'],
+                            handleUsageProblems=False)
 
     def test1056(self):
         '''Float options, integer for float'''
@@ -968,7 +975,8 @@ class OptMatcherTests(Tests):
         self.assertRaiseArg(UsageException,
                             'Unexpected flag d in argument -d',
                             Simple(publicNames={'d':'dry-run'}).process,
-                            [None, '-d'])
+                            [None, '-d'],
+                            handleUsageProblems=False)
 
     def test1103(self):
         '''Using publicNames, expected error when overriding'''
@@ -1095,7 +1103,8 @@ class OptMatcherTests(Tests):
 
         self.assertRaiseArg(UsageException,
                             'Missing required flag a',
-                            Simple().process, [None, '-rv', 'file', '-k'])
+                            Simple().process, [None, '-rv', 'file', '-k'],
+                            handleUsageProblems=False)
 
     def test2111(self):
         '''Defining a function twice'''
@@ -1375,7 +1384,8 @@ class OptMatcherTestsOnDecoration(Tests):
                 pass
             
         self.assertRaiseArg(UsageException, 'Missing required flag k',
-                            Simple().process, [None])
+                            Simple().process, [None],
+                            handleUsageProblems=False)
         
     def test3031(self):
         '''Full decoration'''
@@ -1498,7 +1508,8 @@ class OptMatcherTestsOnErrorMessages(Tests):
 
         self.assertRaiseArg(UsageException,
                             'Unexpected flag v in argument -v',
-                            Simple().process, [None, '-v'])
+                            Simple().process, [None, '-v'],
+                            handleUsageProblems=False)
 
     def test4002(self):
         '''Message error: required flag'''
@@ -1510,7 +1521,8 @@ class OptMatcherTestsOnErrorMessages(Tests):
 
         self.assertRaiseArg(UsageException,
                             'Missing required flag o',
-                            Simple().process, [None])
+                            Simple().process, [None],
+                            handleUsageProblems=False)
 
     def test4003(self):
         '''Message error: unexpected parameter'''
@@ -1522,7 +1534,8 @@ class OptMatcherTestsOnErrorMessages(Tests):
 
         self.assertRaiseArg(UsageException,
                             'Unexpected argument: file',
-                            Simple(defaultHelp=False).process, [None, 'file'])
+                            Simple(defaultHelp=False).process, [None, 'file'],
+                            handleUsageProblems=False)
 
     def test4004(self):
         '''Message error: required parameter'''
@@ -1534,7 +1547,8 @@ class OptMatcherTestsOnErrorMessages(Tests):
 
         self.assertRaiseArg(UsageException,
                             'Missing required parameter name',
-                            Simple().process, [None])
+                            Simple().process, [None],
+                            handleUsageProblems=False)
 
     def test4005(self):
         '''Message error: required parameter, changed on decorator'''
@@ -1546,7 +1560,8 @@ class OptMatcherTestsOnErrorMessages(Tests):
 
         self.assertRaiseArg(UsageException,
                             'Missing required parameter class',
-                            Simple().process, [None])
+                            Simple().process, [None],
+                            handleUsageProblems=False)
 
 
     def test4011(self):
@@ -1577,7 +1592,8 @@ class OptMatcherTestsOnErrorMessages(Tests):
 
         self.assertRaiseArg(UsageException,
                             'Unexpected flag r in argument -vpr',
-                            Simple().process, [None, '-vpr'])
+                            Simple().process, [None, '-vpr'],
+                            handleUsageProblems=False)
 
     def test4012(self):
         '''Message error: higher complexity'''
@@ -1592,7 +1608,8 @@ class OptMatcherTestsOnErrorMessages(Tests):
 
         self.assertRaiseArg(UsageException,
                             'Unexpected flag q in argument -q',
-                            Simple().process, [None, '-vp', 'arg', '-q'])
+                            Simple().process, [None, '-vp', 'arg', '-q'],
+                            handleUsageProblems=False)
 
 
 class UsageTests(Tests):
