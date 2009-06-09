@@ -1596,8 +1596,9 @@ class UsageTests(Tests):
         expectedSplit = expected.split('\n')
         for i, (lineR, lineE) in enumerate(zip(receivedSplit, expectedSplit)):
             if lineR != lineE:
-                print 'Line', i + 1, 'Received:', lineR
-                print 'Line', i + 1, 'Expected:', lineE
+                print
+                print 'Line', i + 1, 'Received:', lineR, len(lineR)
+                print 'Line', i + 1, 'Expected:', lineE, len(lineE)
                 self.fail('Line ' + str(i + 1) + ' ' + lineR + 
                           '\nAnd expected: ' + lineE)
         self.failUnless(len(receivedSplit) == len(expectedSplit))
@@ -1624,7 +1625,7 @@ class UsageTests(Tests):
         self.failUnless(self.convertList(usage.getParameters(1))
                         == 'par1 ...')
         self.failUnless(self.convertList(usage.getAllOptions()) == 
-                        '-h -k -v -o O')
+                        '--help -k -v -o O')
     
     def test6002(self):
         '''Basic help tests, added optset'''
@@ -1650,7 +1651,7 @@ class UsageTests(Tests):
         self.failUnless(usage.getAllParameters() == 
                         'par1 par2 arg ...')
         self.failUnless(self.convertList(usage.getAllOptions()) == 
-                        '-h -k -v -o O [-r R (r)]')
+                        '--help -k -v -o O [-r R (r)]')
     
     def test6003(self):
         '''Basic help tests, added optsetm, with exclusive on optmatcher'''
@@ -1676,7 +1677,7 @@ class UsageTests(Tests):
         self.failUnless(usage.getAllParameters() == 
                         'par1 par2 ...')
         self.failUnless(self.convertList(usage.getAllOptions()) == 
-                        '-h -k -v -o O [-r R (r)]')
+                        '--help -k -v -o O [-r R (r)]')
     
     def test6004(self):
         '''Global help test'''
@@ -1738,9 +1739,9 @@ options:
   -v, --verbose         lot of useless info is output
   -w
   --common-opt=COMMON_OPT
+  -d DX
   -D DEFINE, --define=DEFINE
                         create a new prefix
-  -d DX
   -f FILE, --filename=FILE
                         write output to FILE
   -i IN, --include=IN
@@ -1749,15 +1750,18 @@ options:
 
 alternatives:
 
-* -b --common -D DEFINE -d DX -f FILE [--common-opt=COMMON_OPT (23)]
-  [-i IN (34)] [-w (True)] one [two (2)] ...
+* -b --common -d DX --define=DEFINE --filename=FILE
+  [--common-opt=COMMON_OPT (23)] [--include=IN (34)] [-w (True)] one
+  [two (2)] ...
                         Executes this program repeatedly until everybody
                         is tired
 
-* -b --common --common2 -d DX -m MODE -p [--common-opt=COMMON_OPT (23)]
-  [-i IN (68)] [-v (False)] one [commonPar (po)] [addpar (3)]
+* -b --common --common2 -d DX --mode=MODE -p
+  [--common-opt=COMMON_OPT (23)] [--include=IN (68)] [--verbose (False)]
+  one [commonPar (po)] [addpar (3)]
 
-* --common2 -p [-i IN (68)] [-v (False)] one three four [addpar (3)]
+* --common2 -p [--include=IN (68)] [--verbose (False)] one three four
+  [addpar (3)]
 
 * -b --common -d DX --super [--common-opt=COMMON_OPT (23)]
   [commonPar (po)]'''

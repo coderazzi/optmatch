@@ -5,7 +5,7 @@ Author:  Luis M. Pena <dr.lu@coderazzi.net>
 Site:    www.coderazzi.net/python/optmatch
 """
 
-__version__ = '0.8.4'
+__version__ = '0.8.5'
 
 __all__ = ['optset', 'optmatcher',
            'OptionMatcher', 'OptionMatcherException', 'UsageException']
@@ -37,6 +37,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+import os.path
 import re
 
 _COMMA_SPLIT = re.compile('\\s*,\\s*')
@@ -295,9 +296,9 @@ class FlagInfo(ArgumentInfo):
     '''Flags are arguments with aliases, and with a prefix (--, i.e.)'''
     
     def __init__(self, aliases, mode):
-        '''The name of a flag/option is the shortest of its aliases'''
+        '''The name of a flag/option is the largest of its aliases'''
         aliases.sort(key=len)
-        ArgumentInfo.__init__(self, aliases[0], mode)
+        ArgumentInfo.__init__(self, aliases[-1], mode)
         self.aliases = aliases
         
     def aliasesAsStr(self):
@@ -334,7 +335,7 @@ class OptionInfo(FlagInfo):
                         return self.mode.varNames[alias]
                     except KeyError:
                         pass
-            return self.aliases[-1].upper().replace('-','_')
+            return self.name.upper().replace('-','_')
                                      
         return self.mode.getDelimiter(name or self.name) + getVariableName()
     
@@ -511,9 +512,6 @@ class OptMatcherInfo(object):
         #only invoked on optset' methods, where self.gorup is None or a r.e.
         return self.group.match(matcherHandler.func.__name__) != None
             
-    def getDoc(self):
-        return self.func.__doc__
-    
     def supportVargs(self):
         '''Returns whether it accepts *vars'''
         return self.vararg > 0
@@ -660,6 +658,12 @@ class OptMatcherInfo(object):
         varnames = f.func_code.co_varnames[firstArg:f.func_code.co_argcount]
         return list(varnames), (flags & 0x0004) != 0, (flags & 0x0008) != 0
 
+    def _asInt(self, value):
+        return int(value)
+                        
+    def _asFloat(self, value):
+        return float(value)
+                        
 
 class OptMatcherHandler(OptMatcherInfo):
     '''Internal class, representing each specific matcher handler.
@@ -828,19 +832,14 @@ class OptMatcherHandler(OptMatcherInfo):
             try:
                 value = self.converts[option](value)
             except KeyError:
-                pass #no conversion required
+                #no conversion required, we treat it always as file
+                value = os.path.expanduser(os.path.expandvars(value))
             except ValueError:
                 raise UsageException('Incorrect value for ' + name)
             self.provided[option] = value
             cmd.setArgHandled()
         return option
     
-    def _asInt(self, value):
-        return int(value)
-                        
-    def _asFloat(self, value):
-        return float(value)
-                        
     def _splitPrefix(self, name):
         #Splits an existing prefix from the given name.
         #   It does not apply to short prefixes (getopt mode)
@@ -954,7 +953,10 @@ class UsageAccessor(object):
                     self.add(content, ident)
                     doc = self.getDoc(i)
                     if doc:
-                        self.add(doc, column)
+                        self.addLine()
+                        for line in doc.split('\n'):
+                            if line.strip():
+                                self.add(line, column)
         return self.getContent()
         
     def getAlternatives(self):
