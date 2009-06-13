@@ -5,7 +5,7 @@ Author:  Luis M. Pena <dr.lu@coderazzi.net>
 Site:    www.coderazzi.net/python/optmatch
 """
 
-__version__ = '0.8.5'
+__version__ = '0.8.6'
 
 __all__ = ['optset', 'optmatcher',
            'OptionMatcher', 'OptionMatcherException', 'UsageException']
@@ -37,6 +37,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+import operator
 import os.path
 import re
 
@@ -73,7 +74,7 @@ class Decoration(object):
         
         #perhaps the base decorator is called with the function to decorate
         #see http://coderazzi.net/tnotes/python/decoratorsWithoutArguments.html
-        if (args[0] and not filter(None, args[1:]) and
+        if (args[0] and not any(filter(None, args[1:])) and
                 type(args[0]) == type(decorate)): 
             return decorate(args[0], [])
 
@@ -109,7 +110,7 @@ class Decoration(object):
                 if info:
                     functionsAndPriorities.append((priority or 0, f))
         #sort now by inverse priority, and return just the functions
-        functionsAndPriorities.sort(lambda x, y: y[0] - x[0]) 
+        functionsAndPriorities.sort(key=operator.itemgetter(0), reverse=True) 
         return [f for (p, f) in functionsAndPriorities]    
 
 
@@ -185,7 +186,7 @@ class CommandLine(object):
             
     def getPosition(self):
         if self.finished():
-            return self.args, 0
+            return len(self.args), 0
         inShort = len(self.arg)
         if self.value:
             inShort -= len(self.value)
@@ -335,7 +336,7 @@ class OptionInfo(FlagInfo):
                         return self.mode.varNames[alias]
                     except KeyError:
                         pass
-            return self.name.upper().replace('-','_')
+            return self.name.upper().replace('-', '_')
                                      
         return self.mode.getDelimiter(name or self.name) + getVariableName()
     
@@ -396,7 +397,7 @@ class OptMatcherInfo(object):
         self.kwargs = kwarg and not self.mode.getopt and {}
         #note that self.group is used for 'applies' and 'exclusive' 
         decorationInfo, self.group, priority = Decoration.parseDecoration(func)
-        if decorationInfo and filter(None, decorationInfo): 
+        if decorationInfo and any(filter(None, decorationInfo)): 
             self._initializeParametersFromDecorator(vars, *decorationInfo)
         else:
             self._initializeParametersFromSignature(vars)            
@@ -690,8 +691,8 @@ class OptMatcherHandler(OptMatcherInfo):
         
         def somethingProvided():
             #just check if the user provided any value.
-            return self.providedPars or filter(lambda x: x != [],
-                                               self.provided.values())            
+            return self.providedPars or any(filter(lambda x: x != [],
+                                                   self.provided.values()))            
         #It can, if all the options/parameters are specified or have defaults
         errorReason = self._getInvokingPars()[0]        
         return (required or somethingProvided()) and errorReason
@@ -1020,22 +1021,12 @@ class UsageAccessor(object):
         that were defined for any of the provided matchers. The list
         will be sorted alphabetically, listing first the flags
         '''
-        def compare(a, b):
-            #first: give less weight to options than to flags
-            noflag = isinstance(a, OptionInfo)
-            if noflag != isinstance(b, OptionInfo):
-                return (noflag and 1) or - 1
-            #then: alphabetical order, case insensitive
-            A = a.name.lower()    
-            B = b.name.lower()
-            return (A < B and - 1) or (A > B and 1) or 0
-        
         #Search is done over all the matchers, with priority on the common
         options = {}
         for i in range(self.getAlternatives()):
             self._buildOptions(i, options)
         ret = options.values()
-        ret.sort(compare)
+        ret.sort(key=lambda x: (isinstance(x, OptionInfo), x.name.lower()))
         return ret
 
     def getOptions(self, alternative):
@@ -1044,17 +1035,8 @@ class UsageAccessor(object):
         those associated to the common matcher. The list
         will be sorted alphabetically, listing last the optional options
         '''
-        def compare(a, b):
-            #first: give less weight to instances withour default values
-            if a.defaultProvided != b.defaultProvided:
-                return (a.defaultProvided and 1) or - 1
-            #then: alphabetical order, case insensitive
-            A = a.name.lower()    
-            B = b.name.lower()
-            return (A < B and - 1) or (A > B and 1) or 0
-        
         ret = self._buildOptions(alternative, {}).values()
-        ret.sort(compare)
+        ret.sort(key=lambda x: (x.defaultProvided, x.name.lower()))
         return ret
         
     def _buildOptions(self, alternative, options):
@@ -1158,7 +1140,7 @@ class OptionMatcher (object):
         '''
         matchers, commons = self._createHandlers()   
         commandLine = CommandLine(args, self._mode, gnu)        
-        highestProblem = None, 'Invalid command line input'
+        highestProblem = (-1, 0), 'Invalid command line input'
         
         #the method is simple: for each matcher, we verify if the arguments
         # suit it, taking in consideration the common handler, if given.
