@@ -74,7 +74,7 @@ class Decoration(object):
         
         #perhaps the base decorator is called with the function to decorate
         #see http://coderazzi.net/tnotes/python/decoratorsWithoutArguments.html
-        if (args[0] and not any(filter(None, args[1:])) and
+        if (args[0] and not filter(None, args[1:]) and
                 type(args[0]) == type(decorate)): 
             return decorate(args[0], [])
 
@@ -397,7 +397,7 @@ class OptMatcherInfo(object):
         self.kwargs = kwarg and not self.mode.getopt and {}
         #note that self.group is used for 'applies' and 'exclusive' 
         decorationInfo, self.group, priority = Decoration.parseDecoration(func)
-        if decorationInfo and any(filter(None, decorationInfo)): 
+        if decorationInfo and filter(None, decorationInfo): 
             self._initializeParametersFromDecorator(vars, *decorationInfo)
         else:
             self._initializeParametersFromSignature(vars)            
@@ -691,8 +691,8 @@ class OptMatcherHandler(OptMatcherInfo):
         
         def somethingProvided():
             #just check if the user provided any value.
-            return self.providedPars or any(filter(lambda x: x != [],
-                                                   self.provided.values()))            
+            return self.providedPars or filter(lambda x: x != [],
+                                               self.provided.values())            
         #It can, if all the options/parameters are specified or have defaults
         errorReason = self._getInvokingPars()[0]        
         return (required or somethingProvided()) and errorReason
