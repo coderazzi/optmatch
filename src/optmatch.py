@@ -5,7 +5,7 @@ Author:  Luis M. Pena <dr.lu@coderazzi.net>
 Site:    www.coderazzi.net/python/optmatch
 """
 
-__version__ = '0.8.6'
+__version__ = '0.8.7'
 
 __all__ = ['optset', 'optmatcher',
            'OptionMatcher', 'OptionMatcherException', 'UsageException']
@@ -37,7 +37,6 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-import operator
 import os.path
 import re
 
@@ -110,7 +109,7 @@ class Decoration(object):
                 if info:
                     functionsAndPriorities.append((priority or 0, f))
         #sort now by inverse priority, and return just the functions
-        functionsAndPriorities.sort(key=operator.itemgetter(0), reverse=True) 
+        functionsAndPriorities.sort(key=lambda x: -x[0])
         return [f for (p, f) in functionsAndPriorities]    
 
 
