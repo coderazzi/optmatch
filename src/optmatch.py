@@ -109,7 +109,7 @@ class Decoration(object):
                 if info:
                     functionsAndPriorities.append((priority or 0, f))
         #sort now by inverse priority, and return just the functions
-        functionsAndPriorities.sort(key=lambda x: -x[0])
+        functionsAndPriorities.sort(key=lambda x:-x[0])
         return [f for (p, f) in functionsAndPriorities]    
 
 
@@ -580,14 +580,18 @@ class OptMatcherInfo(object):
                     except KeyError:
                         pass
             else:
-                changed = False
-                for i, n in self.pars.items():
-                    if old == n:
-                        changed, self.pars[i] = True, new
-                    elif changed and new == n:
+                oldPos, usedPos = None, None
+                for pos, name in self.pars.items():
+                    if old == name:
+                        oldPos = pos
+                    elif new == name:
+                        usedPos = pos
+                if oldPos and usedPos != oldPos: 
+                    if usedPos: 
                         raise OptionMatcherException (new + ' cannot be a '
                                         'public rename, already defined as ' + 
                                         'parameter in ' + self.describe())
+                    self.pars[oldPos] = new
                                             
     def setAliases(self, aliases):
         '''Sets aliases between option definitions.'''

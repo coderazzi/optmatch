@@ -982,6 +982,12 @@ class OptMatcherTests(Tests):
                             Simple(publicNames={'first':'second'}).process,
                             [None])
 
+        self.assertRaiseArg(OptionMatcherException,
+                            'first cannot be a public rename, already ' + 
+                            'defined as parameter in method Simple.handle',
+                            Simple(publicNames={'second':'first'}).process,
+                            [None])
+
     def test1105(self):
         '''Using publicNames and aliases'''
         
