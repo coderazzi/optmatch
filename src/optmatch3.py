@@ -567,7 +567,7 @@ class OptMatcherInfo(object):
             if old in defSet:
                 newSet = self._getDefsGroup(new)
                 if new in newSet:
-                    raise OptionMatcherException (new + ' cannot be a ' + 
+                    raise OptionMatcherException(new + ' cannot be a ' +
                         'public rename, already defined in ' + self.describe()) 
                 defSet.remove(old)
                 newSet.add(new)
@@ -580,15 +580,19 @@ class OptMatcherInfo(object):
                     except KeyError:
                         pass
             else:
-                changed = False
-                for i, n in self.pars.items():
-                    if old == n:
-                        changed, self.pars[i] = True, new
-                    elif changed and new == n:
-                        raise OptionMatcherException (new + ' cannot be a '
-                                        'public rename, already defined as ' + 
-                                        'parameter in ' + self.describe())
-                                            
+                oldPos, usedPos = None, None
+                for pos, name in self.pars.items():
+                    if old == name:
+                        oldPos = pos
+                    if new == name:
+                        usedPos = pos
+                if oldPos and usedPos != oldPos:
+                    if usedPos:
+                        raise OptionMatcherException(new + ' cannot be a '
+                                     'public rename, already defined as ' +
+                                     'parameter in ' + self.describe())
+                    self.pars[oldPos] = new
+
     def setAliases(self, aliases):
         '''Sets aliases between option definitions.'''
         #Aliases affect to all possible options (flags/options/prefixes).

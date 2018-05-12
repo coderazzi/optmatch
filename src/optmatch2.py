@@ -348,8 +348,8 @@ class OptMatcherInfo(object):
     '''Internal class, holds the information associated to each matcher'''
         
     DECORATOR_ASSIGN = re.compile('(.+?)\\s+as\\s+(.+)')
-    FLAG_PATTERN = re.compile('(.+)' + 
-                              '(Flag|Option|OptionInt|OptionFloat|Prefix)$')
+    FLAG_PATTERN = re.compile('(.+)(Flag|Option|OptionInt|OptionFloat|Prefix|'
+                              '_flag|_option|_option_int|_option_float|_prefix)$')
 
     def __init__(self, func, mode):
         self.mode = mode
@@ -424,15 +424,15 @@ class OptMatcherInfo(object):
             match = self.FLAG_PATTERN.match(var)
             if match:
                 useName, what = camelCaseChange(match.group(1)), match.group(2)
-                if what == 'Flag':
+                if what in ['Flag', '_flag']:
                     self.flags[useName] = self.lastArg
-                elif what == 'Prefix':
+                elif what in ['Prefix', '_prefix']:
                     self.prefixes[useName] = self.lastArg
                 else:
                     self.options[useName] = self.lastArg
-                    if what == 'OptionInt':
+                    if what in ['OptionInt', '_option_int']:
                         self.converts[self.lastArg] = self._asInt
-                    elif what == 'OptionFloat':
+                    elif what in ['OptionFloat', '_option_float']:
                         self.converts[self.lastArg] = self._asFloat
             else:
                 self.pars[self.lastArg] = var
@@ -584,15 +584,15 @@ class OptMatcherInfo(object):
                 for pos, name in self.pars.items():
                     if old == name:
                         oldPos = pos
-                    elif new == name:
+                    if new == name:
                         usedPos = pos
-                if oldPos and usedPos != oldPos: 
-                    if usedPos: 
-                        raise OptionMatcherException (new + ' cannot be a '
-                                        'public rename, already defined as ' + 
-                                        'parameter in ' + self.describe())
+                if oldPos and usedPos != oldPos:
+                    if usedPos:
+                        raise OptionMatcherException(new + ' cannot be a '
+                                       'public rename, already defined as ' +
+                                       'parameter in ' + self.describe())
                     self.pars[oldPos] = new
-                                            
+
     def setAliases(self, aliases):
         '''Sets aliases between option definitions.'''
         #Aliases affect to all possible options (flags/options/prefixes).
