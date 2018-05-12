@@ -5,7 +5,7 @@ Author:  Luis M. Pena <dr.lu@coderazzi.net>
 Site:    www.coderazzi.net/python/optmatch
 """
 
-__version__ = '0.8.7'
+__version__ = '0.8.8'
 
 __all__ = ['optset', 'optmatcher',
            'OptionMatcher', 'OptionMatcherException', 'UsageException']
@@ -1132,7 +1132,7 @@ class OptionMatcher (object):
     
     def printHelp(self):
         '''shows the help message'''
-        print self.getUsage().getUsageString()
+        print(self.getUsage().getUsageString())
         
     def process(self, args, gnu=False, handleUsageProblems=True):
         '''Processes the given command line arguments
@@ -1168,7 +1168,7 @@ class OptionMatcher (object):
                 for each in commons:
                     each.reset()
             raise UsageException (highestProblem[1])       
-        except UsageException, ex:
+        except UsageException as ex:
             if handleUsageProblems != False:
                 import sys
                 sys.stderr.write(str(ex) + '\n')
