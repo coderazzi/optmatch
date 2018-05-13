@@ -42,7 +42,7 @@ class InternalTests(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-a'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1])
 
     def test0002(self):
@@ -53,7 +53,7 @@ class InternalTests(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-b'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(ret)
 
     def test0003(self):
@@ -64,7 +64,7 @@ class InternalTests(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-a=2'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == '2')
 
     def test0004(self):
@@ -89,7 +89,7 @@ class InternalTests(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-a=2'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.kwargs == {'a': '2'})
 
     def test0012(self):
@@ -100,7 +100,7 @@ class InternalTests(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-a'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.kwargs == {'a': None})
 
     def test0021(self):
@@ -111,7 +111,7 @@ class InternalTests(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-Dname=value'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == [('name', 'value')])
 
     def test0022(self):
@@ -122,7 +122,7 @@ class InternalTests(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-Iname'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == [('name', None)])
 
     def test0023(self):
@@ -135,7 +135,7 @@ class InternalTests(Tests):
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException,
                             'Incorrect prefix usage on argument -I=name',
-                            ch.handleArg,
+                            ch.handle_arg,
                             arg)
 
     def test0024(self):
@@ -155,8 +155,8 @@ class InternalTests(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-aalias'], m, False)
         ch = OptMatcherHandler(method, m)
-        ch.setAliases({'a': 'aalias'})
-        ret = ch.handleArg(arg)
+        ch.set_aliases({'a': 'aalias'})
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1])
 
     def test0103(self):
@@ -167,8 +167,8 @@ class InternalTests(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-aalias=2'], m, False)
         ch = OptMatcherHandler(method, m)
-        ch.setAliases({'a': 'aalias'})
-        ret = ch.handleArg(arg)
+        ch.set_aliases({'a': 'aalias'})
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == '2')
 
     def test0111(self):
@@ -179,8 +179,8 @@ class InternalTests(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-definename=value'], m, False)
         ch = OptMatcherHandler(method, m)
-        ch.setAliases({'D': 'define'})
-        ret = ch.handleArg(arg)
+        ch.set_aliases({'D': 'define'})
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == [('name', 'value')])
 
     def test0112(self):
@@ -191,8 +191,8 @@ class InternalTests(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-includename'], m, False)
         ch = OptMatcherHandler(method, m)
-        ch.setAliases({'I': 'include'})
-        ret = ch.handleArg(arg)
+        ch.set_aliases({'I': 'include'})
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == [('name', None)])
 
     def test0201(self):
@@ -203,7 +203,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1])
 
     def test0202(self):
@@ -214,7 +214,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--qqw'], m, False)
         ch = OptMatcherHandler(method, m)
-        self.assertTrue(ch.handleArg(arg))
+        self.assertTrue(ch.handle_arg(arg))
 
     def test0203(self):
         """getopt mode. Long option given"""
@@ -224,7 +224,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--mode=2'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == '2')
 
     def test0211(self):
@@ -235,7 +235,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--definename=value'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == [('name', 'value')])
 
     def test0212(self):
@@ -246,7 +246,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--includename'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == [('name', None)])
 
     def test0301(self):
@@ -257,8 +257,8 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose'], m, False)
         ch = OptMatcherHandler(method, m)
-        ch.setAliases({'v': 'verbose'})
-        ret = ch.handleArg(arg)
+        ch.set_aliases({'v': 'verbose'})
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1])
 
     def test0303(self):
@@ -269,8 +269,8 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose=2'], m, False)
         ch = OptMatcherHandler(method, m)
-        ch.setAliases({'v': 'verbose'})
-        ret = ch.handleArg(arg)
+        ch.set_aliases({'v': 'verbose'})
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == '2')
 
     def test0311(self):
@@ -281,7 +281,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--a=2'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         return ret
 
     def test0312(self):
@@ -292,7 +292,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--aValue'], m, False)
         ch = OptMatcherHandler(method, m)
-        self.assertTrue(ch.handleArg(arg))
+        self.assertTrue(ch.handle_arg(arg))
 
     def test0313(self):
         """getopt mode. Short prefix without associated value"""
@@ -303,7 +303,7 @@ class InternalTests(Tests):
         arg = CommandLine([None, '-a', '-Value'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect prefix a',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test0321(self):
         """getopt mode. Long flag given separated"""
@@ -313,7 +313,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose', 'value'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == 'value')
 
     def test0322(self):
@@ -325,7 +325,7 @@ class InternalTests(Tests):
         arg = CommandLine([None, '--verbose', '-value'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option verbose',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test0323(self):
         """getopt mode. Long flag given separated but as name/value"""
@@ -336,7 +336,7 @@ class InternalTests(Tests):
         arg = CommandLine([None, '--verbose', 'name=value'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option verbose',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test0401(self):
         """getopt mode. Short flag given alone"""
@@ -346,7 +346,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '-v'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] and arg.finished())
 
     def test0402(self):
@@ -357,7 +357,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '-v1'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == '1' and arg.finished())
 
     def test0403(self):
@@ -369,7 +369,7 @@ class InternalTests(Tests):
         arg = CommandLine([None, '-v'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option v',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test0404(self):
         """getopt mode. Short option given separately"""
@@ -379,7 +379,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '-v', '1'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == '1' and arg.finished())
 
     def test0405(self):
@@ -391,7 +391,7 @@ class InternalTests(Tests):
         arg = CommandLine([None, '-v', '-a'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option v',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test0406(self):
         """getopt mode. Short option given separately, including value"""
@@ -402,7 +402,7 @@ class InternalTests(Tests):
         arg = CommandLine([None, '-v', 'a=h'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option v',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test0411(self):
         """getopt mode. A flag given, but not alone"""
@@ -412,7 +412,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '-vw'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] and arg.name == 'w')
 
     def test0501(self):
@@ -423,7 +423,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '-wv', 'q'], m, False)
         ch = OptMatcherHandler(method, m)
-        self.assertTrue(not ch.handleArg(arg) and not ch.handleArg(arg)
+        self.assertTrue(not ch.handle_arg(arg) and not ch.handle_arg(arg)
                         and ch.provided[1] == 'q' and
                         ch.provided[2] and arg.finished())
 
@@ -435,8 +435,8 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, 'file'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
-        self.assertTrue(not ret and ch.providedPars == ['file']
+        ret = ch.handle_arg(arg)
+        self.assertTrue(not ret and ch.provided_pars == ['file']
                         and arg.finished())
 
     def test0602(self):
@@ -447,8 +447,8 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, 'file', 'more'], m, False)
         ch = OptMatcherHandler(method, m)
-        self.assertTrue(not ch.handleArg(arg) and not ch.handleArg(arg)
-                        and ch.providedPars == ['file', 'more']
+        self.assertTrue(not ch.handle_arg(arg) and not ch.handle_arg(arg)
+                        and ch.provided_pars == ['file', 'more']
                         and arg.finished())
 
     def test0603(self):
@@ -459,7 +459,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, 'file', 'more'], m, False)
         ch = OptMatcherHandler(method, m)
-        self.assertFalse(ch.handleArg(arg) and ch.handleArg(arg))
+        self.assertFalse(ch.handle_arg(arg) and ch.handle_arg(arg))
 
     def test0605(self):
         """getopt mode. Using vararg for two arguments"""
@@ -469,7 +469,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, 'file', 'more'], m, False)
         ch = OptMatcherHandler(method, m)
-        self.assertTrue(not ch.handleArg(arg) and not ch.handleArg(arg)
+        self.assertTrue(not ch.handle_arg(arg) and not ch.handle_arg(arg)
                         and arg.finished())
 
     def test0611(self):
@@ -480,10 +480,10 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '-a', 'par1', '-v'], m, True)
         ch = OptMatcherHandler(method, m)
-        self.assertTrue(not ch.handleArg(arg))
+        self.assertTrue(not ch.handle_arg(arg))
         self.assertRaiseArg(UsageException,
                             'Unexpected argument -v after non option arguments',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test0621(self):
         """Checking camel casing"""
@@ -493,7 +493,7 @@ class InternalTests(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--dry-run'], m, True)
         ch = OptMatcherHandler(method, m)
-        self.assertTrue(not ch.handleArg(arg))
+        self.assertTrue(not ch.handle_arg(arg))
 
 
 class InternalTestsForUnderscoredOptions(Tests):
@@ -507,7 +507,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-a'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1])
 
     def test7002(self):
@@ -518,7 +518,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-b'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(ret)
 
     def test7003(self):
@@ -529,7 +529,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-a=2'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == '2')
 
     def test7021(self):
@@ -540,7 +540,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-Dname=value'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == [('name', 'value')])
 
     def test7022(self):
@@ -551,7 +551,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-Iname'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == [('name', None)])
 
     def test7023(self):
@@ -564,7 +564,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException,
                             'Incorrect prefix usage on argument -I=name',
-                            ch.handleArg,
+                            ch.handle_arg,
                             arg)
 
     def test7024(self):
@@ -584,8 +584,8 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-aalias'], m, False)
         ch = OptMatcherHandler(method, m)
-        ch.setAliases({'a': 'aalias'})
-        ret = ch.handleArg(arg)
+        ch.set_aliases({'a': 'aalias'})
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1])
 
     def test7103(self):
@@ -596,8 +596,8 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-aalias=2'], m, False)
         ch = OptMatcherHandler(method, m)
-        ch.setAliases({'a': 'aalias'})
-        ret = ch.handleArg(arg)
+        ch.set_aliases({'a': 'aalias'})
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == '2')
 
     def test7111(self):
@@ -608,8 +608,8 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-definename=value'], m, False)
         ch = OptMatcherHandler(method, m)
-        ch.setAliases({'x': 'define'})
-        ret = ch.handleArg(arg)
+        ch.set_aliases({'x': 'define'})
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == [('name', 'value')])
 
     def test7112(self):
@@ -620,8 +620,8 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('-', '=')
         arg = CommandLine([None, '-includename'], m, False)
         ch = OptMatcherHandler(method, m)
-        ch.setAliases({'x': 'include'})
-        ret = ch.handleArg(arg)
+        ch.set_aliases({'x': 'include'})
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == [('name', None)])
 
     def test7201(self):
@@ -632,7 +632,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1])
 
     def test7202(self):
@@ -643,7 +643,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--qqw'], m, False)
         ch = OptMatcherHandler(method, m)
-        self.assertTrue(ch.handleArg(arg))
+        self.assertTrue(ch.handle_arg(arg))
 
     def test7203(self):
         """getopt mode. Long option given"""
@@ -653,7 +653,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--mode=2'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == '2')
 
     def test7211(self):
@@ -664,7 +664,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--definename=value'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == [('name', 'value')])
 
     def test7212(self):
@@ -675,7 +675,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--includename'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == [('name', None)])
 
     def test7301(self):
@@ -686,8 +686,8 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose'], m, False)
         ch = OptMatcherHandler(method, m)
-        ch.setAliases({'v': 'verbose'})
-        ret = ch.handleArg(arg)
+        ch.set_aliases({'v': 'verbose'})
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1])
 
     def test7303(self):
@@ -698,8 +698,8 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose=2'], m, False)
         ch = OptMatcherHandler(method, m)
-        ch.setAliases({'v': 'verbose'})
-        ret = ch.handleArg(arg)
+        ch.set_aliases({'v': 'verbose'})
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == '2')
 
     def test7311(self):
@@ -710,7 +710,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--a=2'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         return ret
 
     def test7312(self):
@@ -721,7 +721,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--aValue'], m, False)
         ch = OptMatcherHandler(method, m)
-        self.assertTrue(ch.handleArg(arg))
+        self.assertTrue(ch.handle_arg(arg))
 
     def test7313(self):
         """getopt mode. Short prefix without associated value"""
@@ -732,7 +732,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         arg = CommandLine([None, '-a', '-Value'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect prefix a',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test7321(self):
         """getopt mode. Long flag given separated"""
@@ -742,7 +742,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--verbose', 'value'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == 'value')
 
     def test7322(self):
@@ -754,7 +754,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         arg = CommandLine([None, '--verbose', '-value'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option verbose',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test7323(self):
         """getopt mode. Long flag given separated but as name/value"""
@@ -765,7 +765,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         arg = CommandLine([None, '--verbose', 'name=value'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option verbose',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test7401(self):
         """getopt mode. Short flag given alone"""
@@ -775,7 +775,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '-v'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] and arg.finished())
 
     def test7402(self):
@@ -786,7 +786,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '-v1'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == '1' and arg.finished())
 
     def test7403(self):
@@ -798,7 +798,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         arg = CommandLine([None, '-v'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option v',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test7404(self):
         """getopt mode. Short option given separately"""
@@ -808,7 +808,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '-v', '1'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] == '1' and arg.finished())
 
     def test7405(self):
@@ -820,7 +820,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         arg = CommandLine([None, '-v', '-a'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option v',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test7406(self):
         """getopt mode. Short option given separately, including value"""
@@ -831,7 +831,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         arg = CommandLine([None, '-v', 'a=h'], m, False)
         ch = OptMatcherHandler(method, m)
         self.assertRaiseArg(UsageException, 'Incorrect option v',
-                            ch.handleArg, arg)
+                            ch.handle_arg, arg)
 
     def test7411(self):
         """getopt mode. A flag given, but not alone"""
@@ -841,7 +841,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '-vw'], m, False)
         ch = OptMatcherHandler(method, m)
-        ret = ch.handleArg(arg)
+        ret = ch.handle_arg(arg)
         self.assertTrue(not ret and ch.provided[1] and arg.name == 'w')
 
     def test7622(self):
@@ -852,7 +852,7 @@ class InternalTestsForUnderscoredOptions(Tests):
         m = UsageMode('--', '=')
         arg = CommandLine([None, '--dry-run'], m, True)
         ch = OptMatcherHandler(method, m)
-        self.assertTrue(not ch.handleArg(arg))
+        self.assertTrue(not ch.handle_arg(arg))
 
 
 class OptMatcherTests(Tests):
@@ -912,7 +912,7 @@ class OptMatcherTests(Tests):
 
         self.assertRaiseArg(UsageException, 'Missing required flag v',
                             Simple().process, [None],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test1012(self):
         """Define a required flag, provided"""
@@ -935,7 +935,7 @@ class OptMatcherTests(Tests):
 
         self.assertRaiseArg(UsageException, 'Unexpected flag o in argument -o',
                             Simple().process, [None, '-v', '-o'],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test1021(self):
         """Use two flags, one parameter. Flags provided separately"""
@@ -985,7 +985,7 @@ class OptMatcherTests(Tests):
         self.assertRaiseArg(UsageException,
                             'Unexpected argument -o after non option arguments',
                             Simple().process, [None, '-v', 'file', '-o'],
-                            handleUsageProblems=False, gnu=True)
+                            handle_usage_problems=False, gnu=True)
 
     def test1025(self):
         """Flag, option, parameter, all provided"""
@@ -1094,7 +1094,7 @@ class OptMatcherTests(Tests):
         self.assertRaiseArg(UsageException,
                             'Missing required flag v',
                             Simple().process, [None, '-o', 'file'],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test1036(self):
         """Common matcher, not fully specified, forcing 2nd matcher"""
@@ -1192,7 +1192,7 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, vOption): pass
 
         self.assertRaises(OptionMatcherException,
-                          Simple(aliases={'v': 'o'}, optionPrefix='-').process,
+                          Simple(aliases={'v': 'o'}, option_prefix='-').process,
                           [])
 
     def test1047(self):
@@ -1237,7 +1237,7 @@ class OptMatcherTests(Tests):
 
         self.assertRaiseArg(UsageException, 'Incorrect value for val',
                             Simple().process, [None, '--val=two'],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test1053(self):
         """Integer options, float for integer"""
@@ -1251,7 +1251,7 @@ class OptMatcherTests(Tests):
 
         self.assertRaiseArg(UsageException, 'Incorrect value for val',
                             Simple().process, [None, '--val=2.3'],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test1054(self):
         """Float options"""
@@ -1276,7 +1276,7 @@ class OptMatcherTests(Tests):
 
         self.assertRaiseArg(UsageException, 'Incorrect value for val',
                             Simple().process, [None, '--val=two'],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test1056(self):
         """Float options, integer for float"""
@@ -1305,7 +1305,7 @@ class OptMatcherTests(Tests):
         self.assertEqual(Simple().process([None, 'a', 'b']), ('b', 'a'))
 
     def test1101(self):
-        """Using publicNames"""
+        """Using public_names"""
 
         class Simple(OptionMatcher):
 
@@ -1313,11 +1313,11 @@ class OptMatcherTests(Tests):
             def handle(self, dFlag):
                 return dFlag
 
-        self.assertTrue(Simple(publicNames={'d': 'dry-run'}
+        self.assertTrue(Simple(public_names={'d': 'dry-run'}
                                ).process([None, '--dry-run']))
 
     def test1102(self):
-        """Using publicNames, expected error"""
+        """Using public_names, expected error"""
 
         class Simple(OptionMatcher):
 
@@ -1326,12 +1326,12 @@ class OptMatcherTests(Tests):
 
         self.assertRaiseArg(UsageException,
                             'Unexpected flag d in argument -d',
-                            Simple(publicNames={'d': 'dry-run'}).process,
+                            Simple(public_names={'d': 'dry-run'}).process,
                             [None, '-d'],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test1103(self):
-        """Using publicNames, expected error when overriding"""
+        """Using public_names, expected error when overriding"""
 
         class Simple(OptionMatcher):
 
@@ -1339,13 +1339,12 @@ class OptMatcherTests(Tests):
             def handle(self, dFlag, oFlag): pass
 
         self.assertRaiseArg(OptionMatcherException,
-                            'o cannot be a public rename, already defined ' +
-                            'in method Simple.handle',
-                            Simple(publicNames={'d': 'o'}).process,
+                            'method Simple.handle: invalid rename o',
+                            Simple(public_names={'d': 'o'}).process,
                             [None])
 
     def test1104(self):
-        """Using publicNames, expected error when overriding parameter"""
+        """Using public_names, expected error when overriding parameter"""
 
         class Simple(OptionMatcher):
 
@@ -1353,19 +1352,17 @@ class OptMatcherTests(Tests):
             def handle(self, first, second): pass
 
         self.assertRaiseArg(OptionMatcherException,
-                            'second cannot be a public rename, already ' +
-                            'defined as parameter in method Simple.handle',
-                            Simple(publicNames={'first': 'second'}).process,
+                            'method Simple.handle: invalid rename second',
+                            Simple(public_names={'first': 'second'}).process,
                             [None])
 
         self.assertRaiseArg(OptionMatcherException,
-                            'first cannot be a public rename, already ' +
-                            'defined as parameter in method Simple.handle',
-                            Simple(publicNames={'second': 'first'}).process,
+                            'method Simple.handle: invalid rename first',
+                            Simple(public_names={'second': 'first'}).process,
                             [None])
 
     def test1105(self):
-        """Using publicNames and aliases"""
+        """Using public_names and aliases"""
 
         class Simple(OptionMatcher):
 
@@ -1373,7 +1370,7 @@ class OptMatcherTests(Tests):
             def handle(self, dFlag):
                 return dFlag
 
-        self.assertTrue(Simple(publicNames={'d': 'dry-run'},
+        self.assertTrue(Simple(public_names={'d': 'dry-run'},
                                aliases={'r': 'dry-run'}
                                ).process([None, '-r']))
 
@@ -1386,7 +1383,7 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, arg):
                 return oOption, arg
 
-        self.assertEqual(Simple(optionPrefix='/', assigner=':').
+        self.assertEqual(Simple(option_prefix='/', assigner=':').
                          process([None, '/o:23', 'file']),
                          ('23', 'file'))
 
@@ -1400,7 +1397,7 @@ class OptMatcherTests(Tests):
                 return oOption, arg
 
         self.assertEqual(Simple(aliases={'o': 'opt'},
-                                optionPrefix='/', \
+                                option_prefix='/', \
                                 assigner=':').
                          process([None, '/opt:23', 'file']),
                          ('23', 'file'))
@@ -1415,7 +1412,7 @@ class OptMatcherTests(Tests):
                 return oOption, arg
 
         self.assertEqual(Simple(aliases={'opt': 'o'},
-                                optionPrefix='/',
+                                option_prefix='/',
                                 assigner=':').
                          process([None, '/opt:23', 'file']),
                          ('23', 'file'))
@@ -1461,7 +1458,7 @@ class OptMatcherTests(Tests):
         self.assertRaiseArg(UsageException,
                             'Missing required flag a',
                             Simple().process, [None, '-rv', 'file', '-k'],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test2111(self):
         """Defining a function twice"""
@@ -1643,7 +1640,7 @@ class OptMatcherTestsOnDecoration(Tests):
 
         class Simple(OptionMatcher):
 
-            @optmatcher(flags='o', renamePars='va as file')
+            @optmatcher(flags='o', rename_pars='va as file')
             def handleA(self, o, va):
                 return o and va == 'f'
 
@@ -1654,12 +1651,12 @@ class OptMatcherTestsOnDecoration(Tests):
 
         class Simple(OptionMatcher):
 
-            @optmatcher(renamePars='v')
+            @optmatcher(rename_pars='v')
             def handleA(self, v):
                 return True
 
         self.assertRaiseArg(OptionMatcherException,
-                            'Invalid renamePar v',
+                            'Invalid rename_par v',
                             Simple().process, [None])
 
     def test3018(self):
@@ -1667,12 +1664,12 @@ class OptMatcherTestsOnDecoration(Tests):
 
         class Simple(OptionMatcher):
 
-            @optmatcher(renamePars='v as v')
+            @optmatcher(rename_pars='v as v')
             def handleA(self, v):
                 return True
 
         self.assertRaiseArg(OptionMatcherException,
-                            'Invalid renamePar v',
+                            'Invalid rename_par v',
                             Simple().process, [None])
 
     def test3019(self):
@@ -1740,7 +1737,7 @@ class OptMatcherTestsOnDecoration(Tests):
 
         self.assertRaiseArg(UsageException, 'Missing required flag k',
                             Simple().process, [None],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test3031(self):
         """Full decoration"""
@@ -1748,8 +1745,8 @@ class OptMatcherTestsOnDecoration(Tests):
         class Simple(OptionMatcher):
 
             @optmatcher(flags='o,v', options='w', prefixes='d as D',
-                        intOptions='i', floatOptions='f',
-                        renamePars='par as class', priority=1)
+                        int_options='i', float_options='f',
+                        rename_pars='par as class', priority=1)
             def handleA(self, o, v, w, d, i, f, par):
                 return o, v, w, d, i, f, par
 
@@ -1763,13 +1760,13 @@ class OptMatcherTestsOnDecoration(Tests):
 
         class Simple(OptionMatcher):
 
-            @optset(intOptions='m as mode')
+            @optset(int_options='m as mode')
             def common(self, m):
                 self.m = m
 
             @optmatcher(flags='o,v', options='w', prefixes='d as D',
-                        intOptions='i', floatOptions='f',
-                        renamePars='par as class', priority=1)
+                        int_options='i', float_options='f',
+                        rename_pars='par as class', priority=1)
             def handleA(self, o, v, w, d, i, f, par):
                 return self.m, o, v, w, d, i, f, par
 
@@ -1863,7 +1860,7 @@ class OptMatcherTestsOnErrorMessages(Tests):
         self.assertRaiseArg(UsageException,
                             'Unexpected flag v in argument -v',
                             Simple().process, [None, '-v'],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test4002(self):
         """Message error: required flag"""
@@ -1876,7 +1873,7 @@ class OptMatcherTestsOnErrorMessages(Tests):
         self.assertRaiseArg(UsageException,
                             'Missing required flag o',
                             Simple().process, [None],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test4003(self):
         """Message error: unexpected parameter"""
@@ -1888,8 +1885,8 @@ class OptMatcherTestsOnErrorMessages(Tests):
 
         self.assertRaiseArg(UsageException,
                             'Unexpected argument: file',
-                            Simple(defaultHelp=False).process, [None, 'file'],
-                            handleUsageProblems=False)
+                            Simple(default_help=False).process, [None, 'file'],
+                            handle_usage_problems=False)
 
     def test4004(self):
         """Message error: required parameter"""
@@ -1902,20 +1899,20 @@ class OptMatcherTestsOnErrorMessages(Tests):
         self.assertRaiseArg(UsageException,
                             'Missing required parameter name',
                             Simple().process, [None],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test4005(self):
         """Message error: required parameter, changed on decorator"""
 
         class Simple(OptionMatcher):
 
-            @optmatcher(renamePars='c as class')
+            @optmatcher(rename_pars='c as class')
             def handleA(self, c): pass
 
         self.assertRaiseArg(UsageException,
                             'Missing required parameter class',
                             Simple().process, [None],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test4011(self):
         """Message error: coming from lower priority matcher"""
@@ -1946,7 +1943,7 @@ class OptMatcherTestsOnErrorMessages(Tests):
         self.assertRaiseArg(UsageException,
                             'Unexpected flag r in argument -vpr',
                             Simple().process, [None, '-vpr'],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
     def test4012(self):
         """Message error: higher complexity"""
@@ -1962,7 +1959,7 @@ class OptMatcherTestsOnErrorMessages(Tests):
         self.assertRaiseArg(UsageException,
                             'Unexpected flag q in argument -q',
                             Simple().process, [None, '-vp', 'arg', '-q'],
-                            handleUsageProblems=False)
+                            handle_usage_problems=False)
 
 
 class UsageTests(Tests):
@@ -1994,14 +1991,14 @@ class UsageTests(Tests):
             @optmatcher
             def handle2(self, vFlag, kFlag, par1, *args): pass
 
-        usage = Simple().getUsage()
-        self.assertTrue(usage.getAllParameters() ==
+        usage = Simple().get_usage()
+        self.assertTrue(usage.get_all_parameters() ==
                         'par1 par2 ...')
-        self.assertTrue(self.convertList(usage.getParameters(0))
+        self.assertTrue(self.convertList(usage.get_parameters(0))
                         == 'par1 par2')
-        self.assertTrue(self.convertList(usage.getParameters(1))
+        self.assertTrue(self.convertList(usage.get_parameters(1))
                         == 'par1 ...')
-        self.assertTrue(self.convertList(usage.getAllOptions()) ==
+        self.assertTrue(self.convertList(usage.get_all_options()) ==
                         '--help -k -v -o O')
 
     def test6002(self):
@@ -2018,16 +2015,16 @@ class UsageTests(Tests):
             @optmatcher
             def handle2(self, vFlag, kFlag, par1, *args): pass
 
-        usage = Simple().getUsage()
-        self.assertTrue(self.convertList(usage.getParameters(0))
+        usage = Simple().get_usage()
+        self.assertTrue(self.convertList(usage.get_parameters(0))
                         == 'par1 par2 arg')
-        self.assertTrue(self.convertList(usage.getParameters(1))
+        self.assertTrue(self.convertList(usage.get_parameters(1))
                         == 'par1 ...')
-        self.assertTrue(self.convertList(usage.getParameters(2))
+        self.assertTrue(self.convertList(usage.get_parameters(2))
                         == '')
-        self.assertTrue(usage.getAllParameters() ==
+        self.assertTrue(usage.get_all_parameters() ==
                         'par1 par2 arg ...')
-        self.assertTrue(self.convertList(usage.getAllOptions()) ==
+        self.assertTrue(self.convertList(usage.get_all_options()) ==
                         '--help -k -v -o O [-r R (r)]')
 
     def test6003(self):
@@ -2044,16 +2041,16 @@ class UsageTests(Tests):
             @optmatcher
             def handle2(self, vFlag, kFlag, par1, *args): pass
 
-        usage = Simple().getUsage()
-        self.assertTrue(self.convertList(usage.getParameters(0))
+        usage = Simple().get_usage()
+        self.assertTrue(self.convertList(usage.get_parameters(0))
                         == 'par1 par2')
-        self.assertTrue(self.convertList(usage.getParameters(1))
+        self.assertTrue(self.convertList(usage.get_parameters(1))
                         == 'par1 ...')
-        self.assertTrue(self.convertList(usage.getParameters(2))
+        self.assertTrue(self.convertList(usage.get_parameters(2))
                         == '')
-        self.assertTrue(usage.getAllParameters() ==
+        self.assertTrue(usage.get_all_parameters() ==
                         'par1 par2 ...')
-        self.assertTrue(self.convertList(usage.getAllOptions()) ==
+        self.assertTrue(self.convertList(usage.get_all_options()) ==
                         '--help -k -v -o O [-r R (r)]')
 
     def test6004(self):
@@ -2101,8 +2098,8 @@ class UsageTests(Tests):
                 'm': 'interaction mode: novice, intermediate, or ' +
                      'expert [default: intermediate]'}
         vars = {'d': 'DX', 'i': 'IN', 'f': 'FILE'}
-        usage = Simple(aliases=aliases, optionsHelp=info,
-                       optionVarNames=vars, defaultHelp=False).getUsage()
+        usage = Simple(aliases=aliases, options_help=info,
+                       option_var_names=vars, default_help=False).get_usage()
 
         expected = """Usage: [common options] arg1 arg2 arg3 addpar ...
 
@@ -2142,7 +2139,7 @@ alternatives:
 * -b --common -d DX --super [--common-opt=COMMON_OPT (23)]
   [commonPar (po)]"""
 
-        self.checkString(usage.getUsageString(), expected)
+        self.checkString(usage.get_usage_string(), expected)
 
     def test6005(self):
         """Additional global help test"""
@@ -2163,8 +2160,8 @@ alternatives:
         info = {'v': 'lot of useless info is output',
                 'o': 'sets open mode'}
         vars = {'o': 'MODE'}
-        usage = Simple(aliases=aliases, optionsHelp=info,
-                       optionVarNames=vars, defaultHelp=True).getUsage()
+        usage = Simple(aliases=aliases, options_help=info,
+                       option_var_names=vars, default_help=True).get_usage()
         expected = """Usage: [common options] par1
 par2 ...
 
@@ -2180,8 +2177,8 @@ options:
                sets open mode
      -r R"""
 
-        self.checkString(usage.getUsageString(width=30, column=15, ident=5,
-                                              includeAlternatives=False), expected)
+        self.checkString(usage.get_usage_string(width=30, column=15, ident=5,
+                                              include_alternatives=False), expected)
 
     def test6006(self):
         """Verifying optionality on arguments"""
@@ -2197,11 +2194,11 @@ options:
             @optmatcher(exclusive=True)
             def handle2(self, par1, optionalPar='o'): pass
 
-        usage = Simple().getUsage()
+        usage = Simple().get_usage()
         # note that optionalPar in handle is not treated as optional anymore
-        self.assertTrue(self.convertList(usage.getParameters(0))
+        self.assertTrue(self.convertList(usage.get_parameters(0))
                         == 'par1 optionalPar mandatoryPar')
-        self.assertTrue(self.convertList(usage.getParameters(1))
+        self.assertTrue(self.convertList(usage.get_parameters(1))
                         == 'par1 [optionalPar (o)]')
 
     def test6011(self):
@@ -2212,7 +2209,7 @@ options:
             @optmatcher
             def handle(self): pass
 
-            def printHelp(self):
+            def print_help(self):
                 return True
 
         self.assertTrue(Simple().process([None, '-h']))
@@ -2225,7 +2222,7 @@ options:
             @optmatcher
             def handle(self): pass
 
-            def printHelp(self):
+            def print_help(self):
                 return True
 
         self.assertTrue(Simple().process([None, '--help']))
@@ -2238,10 +2235,11 @@ options:
             @optmatcher
             def handle(self): pass
 
-            def printHelp(self):
+            def print_help(self):
                 return True
 
-        self.assertTrue(Simple(optionPrefix='-').process([None, '-help']))
+        print(Simple(option_prefix='-').process([None, '-help']))
+        #self.assertTrue(Simple(option_prefix='-').process([None, '-help']))
 
 
 if __name__ == '__main__':
