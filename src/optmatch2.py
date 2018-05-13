@@ -626,21 +626,21 @@ class OptMatcherInfo(object):
                         pass
             return ret
 
-        for s, l in aliases.items():
+        for s, t in aliases.items():
             if self.mode.getopt:
                 # In getoptmode, aliases must map short and long options,
                 #   that is, options with 1 character and options with more 
                 #   than 1 character
-                if len(s) > len(l):
-                    s, l = l, s
-                if len(s) > 1 or len(l) == 1:
-                    raise OptionMatcherException('Bad alias:' + s + '/' + l)
-                if set_alias(l, s, self.defs, self.short_defs):
+                if len(s) > len(t):
+                    s, t = t, s
+                if len(s) > 1 or len(t) == 1:
+                    raise OptionMatcherException('Bad alias:' + s + '/' + t)
+                if set_alias(t, s, self.defs, self.short_defs):
                     continue
-            elif l in self.defs:
+            elif t in self.defs:
                 # if alias 'l' is already known, we try setting from s->l
-                s, l = l, s
-            set_alias(s, l, self.short_defs, self.defs)
+                s, t = t, s
+            set_alias(s, t, self.short_defs, self.defs)
 
     def get_index_name(self, index):
         # returns the flag/option/parameter name with the given index

@@ -629,21 +629,21 @@ class OptMatcherInfo(object):
                         pass
             return ret
 
-        for s, l in aliases.items():
+        for s, t in aliases.items():
             if self.mode.getopt:
                 # In getoptmode, aliases must map short and long options,
                 #   that is, options with 1 character and options with more
                 #   than 1 character
-                if len(s) > len(l):
-                    s, l = l, s
-                if len(s) > 1 or len(l) == 1:
-                    raise OptionMatcherException('Bad alias:' + s + '/' + l)
-                if set_alias(l, s, self.defs, self.short_defs):
+                if len(s) > len(t):
+                    s, t = t, s
+                if len(s) > 1 or len(t) == 1:
+                    raise OptionMatcherException('Bad alias:' + s + '/' + t)
+                if set_alias(t, s, self.defs, self.short_defs):
                     continue
-            elif l in self.defs:
+            elif t in self.defs:
                 # if alias 'l' is already known, we try setting from s->l
-                s, l = l, s
-            set_alias(s, l, self.short_defs, self.defs)
+                s, t = t, s
+            set_alias(s, t, self.short_defs, self.defs)
 
     def get_index_name(self, index):
         # returns the flag/option/parameter name with the given index
@@ -708,7 +708,7 @@ class OptMatcherHandler(OptMatcherInfo):
         def something_provided():
             # just check if the user provided any value.
             return self.provided_pars or any(filter(lambda x: x != [],
-                                                   self.provided.values()))
+                                                    self.provided.values()))
 
         # It can, if all the options/parameters are specified or have defaults
         error_reason = self._get_invoking_pars()[0]
@@ -745,7 +745,7 @@ class OptMatcherHandler(OptMatcherInfo):
         # These are not passed to the method, but must have been provided to
         # consider that the method can be invoked
         for c in range(self.orphan_flags, 0):
-            if not c in self.provided:
+            if c not in self.provided:
                 return 'Missing required ' + self.get_index_name(c), None, None
 
         return None, args, self.kwargs or {}
@@ -810,7 +810,7 @@ class OptMatcherHandler(OptMatcherInfo):
         """Handles one short argument in the command line"""
         # This method is only called for getopt mode
         name = cmd.name
-        if not name in self.short_defs:
+        if name not in self.short_defs:
             # in shorts, name is just one letter, so not inclusion in
             # short_defs means that it is neither a prefix, do no more checks
             return 'Unexpected flag ' + name + ' in argument ' + cmd.arg
@@ -928,7 +928,7 @@ class UsageAccessor(object):
         self.content.append(current.rstrip())
 
     def get_usage_string(self, width=72, column=24, ident=2,
-                       include_usage=True, include_alternatives=True):
+                         include_usage=True, include_alternatives=True):
         """Generic method to print the usage. By default, the window
         output is limited to 72 characters, with information for each option
         positioned on the column 24.
@@ -1067,7 +1067,7 @@ class UsageAccessor(object):
         # Adds all the options of the given alternative to the passed options
         for h in self.handlers[alternative]:
             for option in h.get_options():
-                if not option.name in options:
+                if option.name not in options:
                     options[option.name] = option
             if h.supports_k_w_args():
                 break
@@ -1192,7 +1192,7 @@ class OptionMatcher(object):
                     each.reset()
             raise UsageException(highest_problem[1])
         except UsageException as ex:
-            if handle_usage_problems != False:
+            if handle_usage_problems is not False:
                 import sys
                 sys.stderr.write(str(ex) + '\n')
                 return handle_usage_problems
@@ -1232,10 +1232,10 @@ class OptionMatcher(object):
         if self._default_help:
             # cannot decorate directly print_help, any instance would
             # get the decoration!
-            f = lambda: self.print_help()
-            f.__doc__ = self.print_help.__doc__
+            def surrogate(): return self.print_help()
+            surrogate.__doc__ = self.print_help.__doc__
             matchers.append(create_handle(optmatcher(
-                flags='help', exclusive=True)(f)))
+                flags='help', exclusive=True)(surrogate)))
 
         return matchers, commons
 
@@ -1272,7 +1272,7 @@ def optmatcher(flags=None, options=None, int_options=None,
                priority=None, exclusive=False):
     """Decorator defining a function / method as optmatcher choice"""
 
-    if exclusive != True and exclusive != False:
+    if exclusive not in [True, False]:
         raise OptionMatcherException('exclusive value must be True or False')
 
     return Decoration.decorate(False, flags, options, int_options,
@@ -1298,4 +1298,3 @@ def optset(flags=None, options=None, int_options=None,
     return Decoration.decorate(True, flags, options, int_options,
                                float_options, prefixes, rename_pars, priority,
                                applies)
-
