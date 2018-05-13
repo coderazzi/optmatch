@@ -1,0 +1,716 @@
+<html>
+<head>
+    <title>optmatch - Python command line parsing made easy</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <meta name="Keywords" content="python option parsing">
+    <!--<link rel="stylesheet" type="text/css" href="../../css/global.css">-->
+    <style> body {margin: 0; width: 800px; margin: 0em auto; } pre { background: #eee; padding: 1em 0.5em; } .mark {} </style>
+<body>
+<div id='body'>
+    <div id='content'>
+        <h1>optmatch - Python command line parsing made easy</h1>
+
+        <ul>
+            <li><a href="#intro">Quick introduction</a></li>
+            <li><a href="#purpose">Purpose</a></li>
+            <li><a href="#concepts">Concepts</a></li>
+            <li><a href="#tutorial">Tutorial</a></li>
+            <ul>
+                <li><a href="#basics">The Basics</a></li>
+                <li><a href="#basic_help">Predefined usage message</a></li>
+                <li><a href="#aliases">Aliases</a></li>
+                <li><a href="#publicnames">Public names</a></li>
+                <li><a href="#optset">optset</a></li>
+                <li><a href="#advanced_optset">Advanced optset</a></li>
+                <li><a href="#mode">Usage mode</a></li>
+                <li><a href="#badusage">Handling bad usage</a></li>
+                <li><a href="#badsyntax">Handling bad syntax</a></li>
+                <li><a href="#moreonhelp">More on help</a></li>
+                <li><a href="#varnames">Var names</a></li>
+                <li><a href="#decorators">Decorators</a></li>
+            </ul>
+            <li><a href="#history">History</a></li>
+            <li><a href="#download">Download</a></li>
+        </ul>
+
+
+        <h2><a name='intro'>Quick introduction</a></h2>
+
+        <p><b>optmatch</b> is a python library that allows parsing command
+            line options in a simple way.
+            For example, a tool supporting two options called <i>mode</i> and
+            <i>verbose</i>, and requiring two arguments, called
+            <i>file</i> and <i>where</i>, would be coded as:</p>
+
+        <pre>class Example(OptionMatcher):
+
+	@optmatcher
+	def handle(self, file, verbose_flag=False, mode_option='simple', where=None):
+		...	</pre>
+
+        <p>This tool would support a syntax such as:</p>
+
+        <pre>[--verbose] [--mode MODE] file [where]</pre>
+
+        <p>In the previous example, the suffix of the method's parameters define the
+            role of each parameter. Alternatively, the decorator can embed this
+            information, like in:</p>
+
+        <pre>class Example(OptionMatcher):
+
+	@optmatcher(flags='verbose', options='mode')
+	def handle(self, file, verbose=False, mode='simple', where=None):
+		...	</pre>
+
+        <p>Which is equivalent to the initial example. A more complicated case would be:</p>
+
+        <pre>class Example(OptionMatcher):
+
+	@optmatcher
+	def handle_help(self, help_flag):
+		...	
+
+	@optmatcher
+	def handle_compression(self, file, compress_flag=False):
+		...
+
+	@optmatcher(flags='verbose', options='mode')
+	def handle(self, file, verbose=False, mode='simple', where=None):
+		...	</pre>
+
+        <p>In this case, the tool supports three possible alternatives:</p>
+        <pre>[--help]</pre>
+        <pre>[--compress] file</pre>
+        <pre>[--verbose] [--mode MODE] file [where]</pre>
+
+        <p>And the library issues usage error messages if the user enters
+            invalid arguments, like <i>--compress</i> and
+            <i>--mode</i>--, which are mutually incompatible.</p>
+
+        <p>The previous examples show the simplest ways to access this library,
+            which contains quite a lof of functionality to cover most aspects related
+            to command line parsing, including printing usage messages, handling aliases,
+            etc.</p>
+
+
+        <h2><a name='purpose'>Purpose</a></h2>
+
+        <p><b>optmatch</b> defines the command line parsing
+            by setting the handler or handlers than will process the command line.
+            The library then matches the received input with these handlers, invoking
+            the most convenient one, or issuing error messages if the input does not
+            match the expected syntax.</p>
+
+        <p>In addition to these handlers, <b>optmatch</b>
+            supports a specific interface to define aliases,
+            documentation associated to each argument/option, etc, and it is able
+            to automatize the generation of usage messages.</p>
+
+        <p>Its initial purpose was to extend the existing related functionality.
+            There are two existing libraries to handle command line options parsing in python:
+            <a href='http://docs.python.org/library/getopt.html'>getopt</a> and
+            <a href='http://docs.python.org/library/optparse.html'>optparse</a>.</p>
+        <ul>
+            <li><b>getopt</b> usage is rather
+                simple, and it is almost just limited to split the received arguments
+                into a list of expected arguments: the programmer must still make sense
+                of the received input, checking that all arguments are there, that they
+                are not incompatible, and then, invoking the handler or handlers to process
+                them.
+            </li>
+
+            <li><b>optparse</b> provides a much richer interface,
+                although it mostly makes the usage of <b>getopt</b>
+                convenient -and it also provides printing usage messages-. Using
+                <b>optparse</b> requires a set of well
+                defined steps: defining the flags/options, etc, its aliases and documentation.
+                For each option is possible to associate some actions, like storing a variable
+                or invoking a function, all defined
+                in a completely procedural way.
+            </li>
+        </ul>
+
+        <p>The initial purpose behind <b>optmatch</b> was to extend
+            <b>optparse</b> to handle some usual operations: defining incompatibilities between
+            arguments, or whether an option would require the presence of
+            some other options. Eventually, it came the idea of just matching command
+            line options to the signature of the parameters, which allows for most of
+            the initial planned checks, and makes handling the command line options very
+            simple.</p>
+
+
+        <h2><a name='concepts'>Concepts</a></h2>
+
+        <p><b>optmatch</b> is not limited to GNU style command
+            line options. In this style, options can be
+            specified in short format or long format. For example, an alias can be defined between the
+            short option <i>v</i> and the long one
+            <i>verbose</i>. The user can then enter
+            <i>-v</i> or <i>--verbose</i>,
+            indistinctly.</p>
+
+        <p>Other valid styles also supported in <b>optmatch</b> include
+            the typical Windows format, like in <i>/help</i>
+            or using <i>-</i> as prefix for short and long options, like in
+            <i>-help</i>. In this document, the
+            GNU style is refered as <b>getopt</b> mode.</p>
+
+        <p>In any case, some terms apply to both styles:</p>
+
+        <ul>
+            <li>option: is an argument prefixed with the option prefix -normally
+                <i>-</i> or <i>--</i>, and with
+                a value associated. For example:
+                <pre>--mode=optimized</pre>
+            </li>
+            <li>flag: is an option without associated value.
+                If present, it is assumed to have the boolean value
+                <i>True</i>. For example:
+                <pre>--verbose</pre>
+            </li>
+            <li>prefix: is an option that can be specified multiple times.
+                For example:
+                <pre>-I/usr/include -I/opt/include</pre>
+            </li>
+            <li>parameter: any argument in the command line that does not include the option prefix.</li>
+        </ul>
+
+
+        <p>Note that, in this document, it is normally used the word option to cover
+            not only options, but also flags and prefixes.</p>
+        <p>In <b>getopt</b> mode, there are two option prefixes:</p>
+        <ul>
+            <li><i>-</i>: short prefix. Only short options apply,
+                containing a single letter. The user can enter multiple short options together,
+                like in:
+                <pre>-iof here</pre>
+                which stands for the short flags
+                <i>i</i>, <i>o</i>, and the short option
+                <i>f</i>, with value <i>here</i></li>
+
+            <li><i>--</i>: long prefix. Only long options apply,
+                containing two or more letters.
+                The user cannot enter multiple long options together. If a value is specified,
+                it can be done on
+                a separate argument, like in:
+                <pre>--mode optimized</pre>
+                Or, alternatively, in the same argument, separated by <i>=</i>
+                (or any other pre-specified character):
+                <pre>--mode=optimized</pre>
+            </li>
+        </ul>
+
+        <p>In non-<b>getopt</b> mode, only one option prefix applies, normally
+            <i>-</i> or <i>/</i>. In this case, there is
+            no distinction between short and long options, and the user must enter
+            each option on a separate argument, like in:
+        <pre>/mode:optimized</pre>
+        </p>
+
+        <p>Finally, <b>optmatch</b> uses the concept 'gnu mode'.
+            If specifically defined, it implies that all option arguments must be
+            specified at the beginning of the command line.
+            Otherwise (the default), options and parameters can be freely intermixed.</p>
+
+        <h2><a name='tutorial'>Tutorial</a></h2>
+
+        <ul>
+            <li><a href="#basics">The Basics</a></li>
+            <li><a href="#basic_help">Predefined usage message</a></li>
+            <li><a href="#aliases">Aliases</a></li>
+            <li><a href="#publicnames">Public names</a></li>
+            <li><a href="#optset">optset</a></li>
+            <li><a href="#advanced_optset">Advanced optset</a></li>
+            <li><a href="#mode">Usage mode</a></li>
+            <li><a href="#badusage">Handling bad usage</a></li>
+            <li><a href="#badsyntax">Handling bad syntax</a></li>
+            <li><a href="#moreonhelp">More on help</a></li>
+            <li><a href="#varnames">Var names</a></li>
+            <li><a href="#decorators">Decorators</a></li>
+        </ul>
+
+        <h3><a name="basics">The basics</a></h3>
+        <p>There are three main elements to import from <b>optmatch</b>:
+        <ul>
+            <li><b>OptionMatcher</b>: the main class; users must
+                implement the methods that handle the command line options as part
+                of a subclass of OptionMatcher.
+            </li>
+            <li><b>optmatcher</b>: a decorator that specifies that a method
+                in a class is a command line handler.
+            </li>
+            <li><b>optset</b>: a decorator that specifies that a method in a
+                class handles common options to one or more handlers.
+            </li>
+        </ul>
+
+        <p>The following code defines two such handlers,
+            and processes the command line arguments:</p>
+
+        <pre>from optmatch import OptionMatcher, optmatcher, optset
+
+class Example(OptionMatcher):
+
+	@optmatcher
+	def handle_compression(self, file, compress_flag):
+		'''Compress the specified file'''
+		...
+
+	@optmatcher
+	def handle_move(self, file, where=None, verbose_flag=False):
+		'''Moves the file to the specified directory'''
+		...	
+
+Example().process(sys.argv)</pre>
+
+        <p>This code allows the tool to handle command line arguments where the user specifies one of:
+        <pre>[--compress] file</pre>
+        <pre>[--verbose] file [where]</pre>
+
+        <p>The suffix for each parameter on the handlers define the parameter role. The valid suffixes are:</p>
+        <ul>
+            <li><b>Flag</b> or <b>_flag</b></li>
+            <li><b>Option</b> or <b>_option</b></li>
+            <li><b>Prefix</b> or <b>_prefix</b></li>
+            <li><b>OptionInt</b> or <b>_option_int</b>: the associated value is converted to an integer</li>
+            <li><b>OptionFloat</b> or <b>_option_float</b>: the associated value is converted to a float number</li>
+        </ul>
+
+        <p>Please note that <b>optmatch</b> automatically expands all shell/user
+            variables in the options.</p>
+
+
+        <h3><a name="basic_help">Basic help</a></h3>
+        <p>In the previous example, in addition to the two specified cases, the user can enter
+            <i>--help</i>
+            to receive some basic usage information. It would look like:</p>
+
+        <pre>Usage: [common options] file where
+
+options:
+  --compress
+  -h, --help            shows this help message
+  --verbose
+
+alternatives:
+
+* --compress file       Compress the specified file
+
+* [--verbose (False)] file [where]
+                        Moves the file to the specified directory
+
+* -h                    shows the help message</pre>
+
+        <p>Note that the documentation for each handlers is used to document the alternatives,
+            but the options are not documented. To document them, it is needed to supply it as:</p>
+
+        <pre>OptionMatcher.set_usage_info(options_help={'compress':'compress the specified file'})</pre>
+
+        <p>The information for all the options must be provided at once, in a dictionary.</p>
+
+
+        <h3><a name="aliases">Aliases</a></h3>
+
+        <p>Aliases are the way to connect short and long options, like specifying that
+            <i>-v</i> is equivalent to <i>--verbose</i></p>
+
+        <p>In <b>getopt</b> mode, an alias must always match a short
+            option (one letter) to a long one, or viceversa. There are two ways ot specify aliases:
+            on the <i>OptionMatcher</i> constructor, or using its
+            <i>set_aliases</i> method, which expects a dictionary, such as:</p>
+        <pre>OptionMatcher.set_aliases({'v':'verbose'})</pre>
+
+        <p>The help system automatically displays the option's aliases.</p>
+
+
+        <h3><a name="publicnames">Public names</a></h3>
+
+        <p>As specifed so far, <b>optmatch</b>
+            would not be able to handle options that are not valid variable names. For example,
+            how to define the flag <i>dry-run</i> or the option
+            <i>email@</i>?</p>
+
+        <p>As it happens, options are quite well behaven, defined usually as valid Python
+            variable names: it is not usual to have an option starting with a digit, or having
+            a character such as <i>$</i> or <i>@</i> inside.
+            In any case, <b>optmatch</b> allows such possibilities, although
+            it must be explicitly programmed.</p>
+
+        <p>The most usual case envolves using dashes, like in <i>dry-run</i>.
+            <b>optmatch</b> automatically translates camel case into dashes, so
+            the following example:</p>
+
+        <pre>@optmatcher
+	def handle(self, dry_run_flag):
+		...	</pre>
+
+        <p>expects the flag <i>dry-run</i>, instead of the flag
+            <i>dry_run</i>.</p>
+
+        <p>This behaviour can be embedded in the decorator, using the <i>as</i>
+            specification. The previous example is equivalent to:</p>
+
+        <pre>@optmatcher(flags='d as dry-run')
+	def handle(self, d):
+		...	</pre>
+
+        <p>Obviously, this possibility allows defining any kind of option, using all kind
+            of illegal variable names:</p>
+
+        <pre>@optmatcher(flags='d as @f***ing!')
+	def handle(self, d):
+		...	</pre>
+
+        <p>Yes, this handler expects a flag <i>--@f***ing!</i></p>
+
+        <p>Although the previous two possibilites should cover all the bases, it is still
+            possible to define a mapping for these <b>public names</b>
+            on the <i>OptionMatcher</i> constructor, or using its
+            <i>set_public_names</i> method, which expects a dictionary, such as:</p>
+        <pre>OptionMatcher.set_public_names({'d':'@f***ing!'})</pre>
+
+
+        <h3><a name="optset">optset</a></h3>
+
+        <p>There are cases where one or more options apply to multiple handlers. A typical
+            example would be the verbose flag. Instead of defining it on all the matchers, it is
+            possible to use the decorator <b>optset</b>, like in:
+
+        <pre>@optset
+	def handle_help(self, help_flag):
+		...	</pre>
+
+        <p>It is quite equivalent to the <b>optmatcher</b> decorator, so
+            it is possible to specify its behaviour through the decorator:</p>
+
+        <pre>@optset(flags='help')
+	def handle_help(self, help):
+		...	</pre>
+
+        <p>These handlers are called, for convenience, when possible. That it, if, in the previous
+            example does not include the flag <i>--help</i>, the method
+            <i>handle_help</i> is not invoked. However, if could have
+            been defined with default values, like in:</p>
+
+        <pre>@optset(flags='help')
+	def handle_help(self, help=False):
+		...	</pre>
+
+        <p>In this case, the method will be always called, which simplifies setting some common
+            variables</p>
+
+
+        <h3><a name="advanced_optset">Advanced optset</a></h3>
+
+        <p><b>optset</b> is also useful to define mandatory options. For example,
+            a tool could require that the flag <i>--test</i> is provided with
+            an option <i>--file=FILENAME</i> where the file to test is specified.</p>
+
+        <p>This could be defined as:</p>
+
+        <pre>@optset
+	def handle_test(self, test_flag, file_option):
+		...	</pre>
+
+        <p>If the user specifies <i>--test</i> but not
+            <i>--file=</i> an exception is automatically raised.</p>
+
+        <p>Now, there could be multiple matchers, but this option
+            <i>--test</i> could only apply to one of the matchers. It is possible
+            to limit the scope of a <b>optset</b> handler to one or several matchers:</p>
+
+        <pre>@optset(applies='zip')
+	def handle_test(self, test_flag, file_option):
+		...	
+
+@optmatcher
+	def zip(self, file):
+		...	
+		</pre>
+
+        <p>It is possible to define multiple matchers, separated by commas or
+            using limited regular expressions:</p>
+
+        <pre>@optset(applies='zip, test*')
+	def handle_test(self, test_flag, file_option):
+		...	</pre>
+
+        <p>In this case, it would apply to the method <i>zip</i>, and to
+            all methods starting with <i>test</i>.</p>
+
+        <p>If a <b>optset</b> handler has no
+            <i>applies</i> specification, it would apply to all defined matchers,
+            unless a matcher specifies <b>exclusive=True</b>, such as:</p>
+
+        <pre>@optmatcher(exclusive=True)
+	def handle(self, test_flag, file_option):
+		...	</pre>
+
+
+        <h3><a name="mode">Usage mode</a></h3>
+
+        <p>By default, <b>OptionMatcher</b> works on <b>getopt</b>
+            mode. In other words, it is compatible with <b>getopt</b> and
+            <b>optparse</b>: there are short options, prefixed with
+            <i>-</i>, and long options, prefixed with <i>--</i>.</p>
+
+        <p>By default also, the <b>gnu mode</b> is disabled: option arguments
+            can be freely intermixed with required arguments. This mode can be disabled on the
+            <i>OptionMatcher.process</i> method, specifying the argument
+            <i>gnu=False</i>.</p>
+
+        <p>This mode can be overriden by specifying a different option prefix. As usual,
+            this can be done on the contructor, or using a specific method, in this case:
+            <i>OptionMatcher.set_mode</i>. For example, </p>
+
+        <pre>OptionMatcher.set_mode(option_prefix='-')</pre>
+
+        <p>In this example, the distinction between short and long arguments dissapear, and all
+            options are expected with the simple prefix <i>-</i>.</p>
+
+        <p>It is also possible to define the character that specifies the assignment, which is
+            by default <i>=</i>. For example, </p>
+
+        <pre>OptionMatcher.set_mode(option_prefix='/', assigner=':')</pre>
+
+        <p>enables Windows typical mode:</p>
+
+        <pre>/mode:optimized</pre>
+
+
+        <h3><a name="badusage">Handling incorrect usage</a></h3>
+
+        <p>When the user's input does not match the expected input, an exception is raised.</p>
+
+        <p>This exception is the <i>UsageException</i>, defined in the
+            <b>optmatcher</b> library. However, by default, it is automatically
+            handled, so that a message is printed on the standard error stream.</p>
+
+        <p>To disable this behaviour, allowing the library's client to process it at will, it
+            is needed to invoke the <i>OptionMatcher.process</i> like in:</p>
+
+        <pre>.process(handle_usage_problems=False)</pre>
+
+
+        <h3><a name="badsyntax">Handling incorrect syntax</a></h3>
+
+        <p><i>UsageException</i> is a class that inherits from
+            <i>OptionMatcherException</i>; this exception is raised when
+            the syntax or aliases are incorrectly defined. It does not depend on the user's input.</p>
+
+
+        <h3><a name="moreonhelp">More on help</a></h3>
+
+        <p>By default, <b>optmatcher</b> adds a matcher to handle help requests.
+            That is, <i>-h</i> or <i>--help</i>, or even
+            <i>/help</i> it the correct prefix was setup, will automatically display
+            the normal usage message.</p>
+
+        <p>There are a few ways to override this behaviour:</p>
+
+        <ul>
+            <li>Disabling the default help: this can be done on the <b>OptionMatcher</b>
+                constructor, or invoking its <i>OptionMatcher.enable_default_help</i>
+                method.
+            </li>
+
+            <li>Overriding the <i>OptionMatcher.print_help</i> method, that will be
+                automatically invoked by the default help.
+            </li>
+
+            <li>Defining an explicit help matcher, such as:
+                <pre>optmatcher
+	def handle_help(self, help_flag):
+		...	</pre>
+            </li>
+        </ul>
+
+        <p>In these two last cases, the <b>OptionMatcher</b> class provides
+            some functionality to display the required information. The method
+            <i>OptionMatcher.get_usage</i> returns a
+            <i>OptionMatcher.print_help</i> UsageAccessor instance, that can be used to
+            format the usage message and to retrieve the required information, related to defined options,
+            paraeters, etc.</p>
+
+
+        <h3><a name="varnames">Var names</a></h3>
+
+        <p><b>varnames</b> is a concept related to the help system.
+            If it is defined an option called <i>filename</i>, the default usage
+            for this option will print something like:</p>
+
+        <pre>filename = FILENAME</pre>
+
+        <p>It is possible to redefine the associated variable (hende the var name), by setting
+            the var names on the constructor:</p>
+
+        <pre>OptionMatcher(option_var_names{'filename':'ORIGIN'})</pre>
+
+        <p>This would print a usage message such as:</p>
+
+        <pre>filename = ORIGIN</pre>
+
+
+        <h3><a name="decorators">Decorators</a></h3>
+
+        <p>The two decorators in this module, <b>optmatcher</b> and
+            <b>optset</b>, allows defining the behaviour of the underlying
+            matcher via their parameters. Both decorators share most of the parameters:
+        </p>
+
+        <ul>
+            <li><b>options</b>: defines which of the parameters are considered options.
+                This parameter is a string, where the defined options are separated by commas, like in:
+
+                <pre>@optmatcher(options='mode, file')
+def matcher(self, mode, file):
+   ...
+</pre>
+
+                Each of the parameters can be defined like:
+                <pre>parameter as public_name</pre>
+                For example:
+
+                <pre>@optmatcher(options='mode as verbose-mode, file as target.file')
+def matcher(self, mode, file):
+   ...
+</pre>
+
+                In this example, the matcher expects two options, named <span class='code'>verbose-mode</span>
+                and <span class='code'>target-file</span>
+
+            </li>
+
+            <li><b>int_options</b>: defines which of the parameters are considered
+                options associated to integer values. The remarks given to the normal options also apply
+                for integer options.
+            </li>
+
+            <li><b>float_options</b>: defines which of the parameters are considered
+                options associated to floatvalues. The remarks given to the normal options also apply
+                for float options.
+            </li>
+
+            <li><b>prefixes</b>: defines which of the parameters are considered
+                prefixes. The remarks given to the normal options also apply for prefixes.
+            </li>
+
+            <li><b>flags</b>: defines which of the parameters are considered
+                flags. The remarks given to the normal options also apply for flags. As additional feature,
+                it is possible to define <b>orphan flags</b>, which are specified in the
+                decorator, but have no associated matching parameter. For example:
+
+                <pre>@optset(flags='quiet')
+def set_quiet(self):
+   ...
+</pre>
+
+                In this case, only when the user enters <span class='code'>--quiet</span>, this matcher
+                is invoked. Note that it would be possible to introduce a parameter
+                <span class='code'>quiet</span> in this matcher, but, when invoked, it would always
+                be set to True. Hereby, it is possible to define it on the decorator only.
+            </li>
+
+            <li><b>rename_pars</b>: defines the public name for the parameter
+                variables. For example:
+
+                <pre>@optmatcher(rename_pars='d as dir')
+def handle(self, d):
+   ...
+</pre>
+
+                The help associated to this matcher would show the parameter <span class='code'>d</span>
+                with the name <span class='code'>dir</span>.
+
+            <li><b>priority</b>. Matchers are tried in order, being the order defined
+                by alphabetical sorting on the matcher method names. This order can be observed when the help
+                lists all the alternatived for the current <b>OptionMatcher</b>. It is
+                possible to alter this order by defining the priorities of each matcher. Higher priorities
+                are invoked first.
+            </li>
+
+        </ul>
+
+        <p>In addition, <b>optset</b> can define the matchers to which it applies,
+            using the <span class='code'>applies</span> parameter in the decorator, as described in
+            the <a href='#advanced_optset'>advanced optset tutorial</a>. Its counterpart is the
+            <span class='code'>exclusive</span> parameter in the
+            <b>optmatcher</b> decorator.</p>
+
+
+        <h2><a name='history'>History</a></h2>
+
+        <ul>
+            <li>Version 0.9.0, 13th May 2018. Included support for naming convention based on underscores
+                (not only camelCase). Also, the library itself is now using the default python syntax, with
+                all methods, variables using underscores.
+            </li>
+            <li>Version 0.8.7, 13th June 2009. Minor leftover changes</li>
+            <li>Version 0.8.6, 13th June 2009. Added version for Python 3.0</li>
+            <li>Version 0.8.5, 2nd June 2009.
+                <ul>
+                    <li>Improves help format</li>
+                    <li>All provided options are automatically expanded (shell and user variables)</li>
+                </ul>
+            <li>Version 0.8.4, 29th May 2009. First downloadable version.</li>
+            <li>Version 0.8, 14th May 2009. API totally simplified, including minor refactoring.</li>
+            <li>Version 0.7, 1st May 2009. Introduction of <b>varnames</b> in help system,
+                help support vastly improved.
+            </li>
+            <li>Version 0.6, 2nd April 2009. Introduction of functionality to help checking the syntax
+                (this was removed on 0.8).
+            </li>
+            <li>Version 0.5, 15th January 2009. Introduction of decorators.</li>
+            <li>Version 0.4, 10th December 2008. Basic help system.</li>
+            <li>Version 0.3, 3rd November 2008. Support for non-getopt mode.</li>
+            <li>Version 0.2, 25th September 2008. Introduction of common handler concept.</li>
+            <li>Version 0.1, 12th September 2008. First working version, totally functional.</li>
+        </ul>
+
+
+        <h2><a name='download'>Download</a></h2>
+
+        <ul>
+            <li>Current version is 0.9.0, released the 13th May 2018:
+                <ul>
+                    <li>Python 3.x version: <a href='src/optmatch3.py'>optmatch3.py</a></li>
+                    <li>Python 2.x version (requires Python 2.4 or later): <a href='src/optmatch2.py'>optmatch2.py</a></li>
+
+                    <li>Unit tests: <a href='test/tests.py'>tests.py</a></li>
+                </ul>
+            </li>
+        </ul>
+
+        <p><b>optmatch</b> is open source, with the
+            following generic python license:</p>
+        <pre>Copyright (c) Luis M. Pena &lt;lu@coderazzi.net&gt;  All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+Redistributions in bytecode form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in
+the documentation and/or other materials provided with the
+distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+</pre>
+
+    </div>
+</div>
+</body>
+</html>
+
