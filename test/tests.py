@@ -496,6 +496,365 @@ class InternalTests(Tests):
         self.assertTrue(not ch.handleArg(arg))
 
 
+class InternalTestsForUnderscoredOptions(Tests):
+    """Tests on internal OptMatcherHandler"""
+
+    def test7001(self):
+        """Non getopt mode. Long flag easy"""
+
+        def method(a_flag): pass
+
+        m = UsageMode('-', '=')
+        arg = CommandLine([None, '-a'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1])
+
+    def test7002(self):
+        """Non getopt mode. Long flag not given"""
+
+        def method(a_flag): pass
+
+        m = UsageMode('-', '=')
+        arg = CommandLine([None, '-b'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(ret)
+
+    def test7003(self):
+        """Non getopt mode. Long option given"""
+
+        def method(a_option): pass
+
+        m = UsageMode('-', '=')
+        arg = CommandLine([None, '-a=2'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == '2')
+
+    def test7021(self):
+        """Non getopt mode. prefix well given with value"""
+
+        def method(D_prefix): pass
+
+        m = UsageMode('-', '=')
+        arg = CommandLine([None, '-Dname=value'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == [('name', 'value')])
+
+    def test7022(self):
+        """Non getopt mode. prefix well given"""
+
+        def method(I_prefix): pass
+
+        m = UsageMode('-', '=')
+        arg = CommandLine([None, '-Iname'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == [('name', None)])
+
+    def test7023(self):
+        """Non getopt mode. prefix incorrect"""
+
+        def method(I_prefix): pass
+
+        m = UsageMode('-', '=')
+        arg = CommandLine([None, '-I=name'], m, False)
+        ch = OptMatcherHandler(method, m)
+        self.assertRaiseArg(UsageException,
+                            'Incorrect prefix usage on argument -I=name',
+                            ch.handleArg,
+                            arg)
+
+    def test7024(self):
+        """Prefix are not mandatory options"""
+
+        def method(I_prefix):
+            return "Called"
+
+        ch = OptMatcherHandler(method, UsageMode('-', '='))
+        self.assertEqual(ch.invoke(), "Called")
+
+    def test7101(self):
+        """Non getopt mode. Long flag with alias"""
+
+        def method(a_flag): pass
+
+        m = UsageMode('-', '=')
+        arg = CommandLine([None, '-aalias'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ch.setAliases({'a': 'aalias'})
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1])
+
+    def test7103(self):
+        """Non getopt mode. Long option given with alias"""
+
+        def method(a_option): pass
+
+        m = UsageMode('-', '=')
+        arg = CommandLine([None, '-aalias=2'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ch.setAliases({'a': 'aalias'})
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == '2')
+
+    def test7111(self):
+        """Non getopt mode. prefix well given as alias, with value"""
+
+        def method(x_prefix): pass
+
+        m = UsageMode('-', '=')
+        arg = CommandLine([None, '-definename=value'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ch.setAliases({'x': 'define'})
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == [('name', 'value')])
+
+    def test7112(self):
+        """Non getopt mode. prefix well given as alias, without value"""
+
+        def method(x_prefix): pass
+
+        m = UsageMode('-', '=')
+        arg = CommandLine([None, '-includename'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ch.setAliases({'x': 'include'})
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == [('name', None)])
+
+    def test7201(self):
+        """getopt mode. Long flag easy"""
+
+        def method(verbose_flag): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--verbose'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1])
+
+    def test7202(self):
+        """getopt mode. Long flag not given"""
+
+        def method(verbose_flag): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--qqw'], m, False)
+        ch = OptMatcherHandler(method, m)
+        self.assertTrue(ch.handleArg(arg))
+
+    def test7203(self):
+        """getopt mode. Long option given"""
+
+        def method(mode_option): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--mode=2'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == '2')
+
+    def test7211(self):
+        """getopt mode. prefix well given"""
+
+        def method(define_prefix): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--definename=value'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == [('name', 'value')])
+
+    def test7212(self):
+        """getopt mode. start flag prefix well given"""
+
+        def method(include_prefix): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--includename'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == [('name', None)])
+
+    def test7301(self):
+        """getopt mode. Long flag with alias"""
+
+        def method(v_flag): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--verbose'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ch.setAliases({'v': 'verbose'})
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1])
+
+    def test7303(self):
+        """getopt mode. Long option given with alias"""
+
+        def method(v_option): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--verbose=2'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ch.setAliases({'v': 'verbose'})
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == '2')
+
+    def test7311(self):
+        """getopt mode. Short option given as long"""
+
+        def method(a_option): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--a=2'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        return ret
+
+    def test7312(self):
+        """getopt mode. Short prefix given as long"""
+
+        def method(a_prefix): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--aValue'], m, False)
+        ch = OptMatcherHandler(method, m)
+        self.assertTrue(ch.handleArg(arg))
+
+    def test7313(self):
+        """getopt mode. Short prefix without associated value"""
+
+        def method(a_prefix): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '-a', '-Value'], m, False)
+        ch = OptMatcherHandler(method, m)
+        self.assertRaiseArg(UsageException, 'Incorrect prefix a',
+                            ch.handleArg, arg)
+
+    def test7321(self):
+        """getopt mode. Long flag given separated"""
+
+        def method(verbose_option): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--verbose', 'value'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == 'value')
+
+    def test7322(self):
+        """getopt mode. Long flag given separated but as option"""
+
+        def method(verbose_option): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--verbose', '-value'], m, False)
+        ch = OptMatcherHandler(method, m)
+        self.assertRaiseArg(UsageException, 'Incorrect option verbose',
+                            ch.handleArg, arg)
+
+    def test7323(self):
+        """getopt mode. Long flag given separated but as name/value"""
+
+        def method(verbose_option): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--verbose', 'name=value'], m, False)
+        ch = OptMatcherHandler(method, m)
+        self.assertRaiseArg(UsageException, 'Incorrect option verbose',
+                            ch.handleArg, arg)
+
+    def test7401(self):
+        """getopt mode. Short flag given alone"""
+
+        def method(v_flag): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '-v'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] and arg.finished())
+
+    def test7402(self):
+        """getopt mode. Short option given alone"""
+
+        def method(v_option): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '-v1'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == '1' and arg.finished())
+
+    def test7403(self):
+        """getopt mode. Short option without value"""
+
+        def method(v_option): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '-v'], m, False)
+        ch = OptMatcherHandler(method, m)
+        self.assertRaiseArg(UsageException, 'Incorrect option v',
+                            ch.handleArg, arg)
+
+    def test7404(self):
+        """getopt mode. Short option given separately"""
+
+        def method(v_option): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '-v', '1'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] == '1' and arg.finished())
+
+    def test7405(self):
+        """getopt mode. Short option given separately but wrong"""
+
+        def method(v_option): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '-v', '-a'], m, False)
+        ch = OptMatcherHandler(method, m)
+        self.assertRaiseArg(UsageException, 'Incorrect option v',
+                            ch.handleArg, arg)
+
+    def test7406(self):
+        """getopt mode. Short option given separately, including value"""
+
+        def method(v_option): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '-v', 'a=h'], m, False)
+        ch = OptMatcherHandler(method, m)
+        self.assertRaiseArg(UsageException, 'Incorrect option v',
+                            ch.handleArg, arg)
+
+    def test7411(self):
+        """getopt mode. A flag given, but not alone"""
+
+        def method(v_flag): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '-vw'], m, False)
+        ch = OptMatcherHandler(method, m)
+        ret = ch.handleArg(arg)
+        self.assertTrue(not ret and ch.provided[1] and arg.name == 'w')
+
+    def test7622(self):
+        """Checking absence of camel casing"""
+
+        def method(dry_run_flag): pass
+
+        m = UsageMode('--', '=')
+        arg = CommandLine([None, '--dry-run'], m, True)
+        ch = OptMatcherHandler(method, m)
+        self.assertTrue(not ch.handleArg(arg))
+
+
 class OptMatcherTests(Tests):
     """Tests directly on the OptionMatcher interface"""
 
@@ -846,6 +1205,16 @@ class OptMatcherTests(Tests):
 
         aliases = {'v': 'verbose'}
         Simple(aliases=aliases).process([None])
+
+    def test1048(self):
+        """Clash between both styles of flags"""
+
+        class Simple(OptionMatcher):
+
+            @optmatcher
+            def handle(self, vFlag, v_flag, par): pass
+
+        self.assertRaises(OptionMatcherException, Simple().process, [])
 
     def test1051(self):
         """Integer options"""

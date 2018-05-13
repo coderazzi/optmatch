@@ -368,7 +368,7 @@ class OptMatcherInfo(object):
             for name in group.keys():
                 defSet = self._getDefsGroup(name)
                 if name in defSet: #for example, defining kFlag and kOption
-                    raise OptionMatcherException('Repeated option "' + name + 
+                    raise OptionMatcherException('Repeated option/flag "' + name +
                                                  '" in ' + self.describe())
                 defSet.add(name)
                 
@@ -409,8 +409,10 @@ class OptMatcherInfo(object):
     def _initializeParametersFromSignature(self, vars): 
         #Initializes the metadata from the function's parameter names
 
-        def camelCaseChange(what):
-            '''Converts camelCase into hyphenation'''
+        def notationChange(what):
+            '''Converts camelCase or underscores into hyphenation'''
+            if '_' in what:  # using underscores, no camel case
+                return what.replace('_', '-')
             ret, transform = [], False
             for i in what:
                 if transform and i.isupper():
@@ -423,20 +425,24 @@ class OptMatcherInfo(object):
         for var in vars:
             match = self.FLAG_PATTERN.match(var)
             if match:
-                useName, what = camelCaseChange(match.group(1)), match.group(2)
+                useName, what = notationChange(match.group(1)), match.group(2)
                 if what in ['Flag', '_flag']:
-                    self.flags[useName] = self.lastArg
+                    goes = self.flags
                 elif what in ['Prefix', '_prefix']:
-                    self.prefixes[useName] = self.lastArg
+                    goes = self.prefixes
                 else:
-                    self.options[useName] = self.lastArg
+                    goes = self.options
                     if what in ['OptionInt', '_option_int']:
                         self.converts[self.lastArg] = self._asInt
                     elif what in ['OptionFloat', '_option_float']:
                         self.converts[self.lastArg] = self._asFloat
+                if useName in goes:
+                    raise OptionMatcherException('Repeated option/flag "' + useName +
+                                                 '" in ' + self.describe())
+                goes[useName] = self.lastArg
             else:
                 self.pars[self.lastArg] = var
-            self.lastArg += 1        
+            self.lastArg += 1
 
     def _initializeParametersFromDecorator(self, vars, flags, options,
                                            intOptions, floatOptions, prefixes,
@@ -1208,9 +1214,9 @@ class OptionMatcher (object):
         if not matchers:
             raise OptionMatcherException("No matchers defined")
         
-        commons = [createHandle(f) 
-                    for f in Decoration.getDecoratedMethods(self, True)]
-        
+        commons = [createHandle(f)
+                   for f in Decoration.getDecoratedMethods(self, True)]
+
         if self._defaultHelp:
             #cannot decorate directly printHelp, any instance would
             #get the decoration!
