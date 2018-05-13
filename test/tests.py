@@ -1,6 +1,3 @@
-# Tests for python 2 can be run as
-# (export PYTHONPATH=../src/:$PYTHONPATH && python2.7 tests2.py)
-
 import os
 import sys
 import unittest
