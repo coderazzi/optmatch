@@ -9,7 +9,7 @@ import os.path
 import re
 from sre_constants import error as RegularExpresionError
 
-__version__ = '0.8.8'
+__version__ = '0.9.0'
 
 __all__ = ['optset', 'optmatcher',
            'OptionMatcher', 'OptionMatcherException', 'UsageException']

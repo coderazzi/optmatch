@@ -2238,8 +2238,7 @@ options:
             def print_help(self):
                 return True
 
-        print(Simple(option_prefix='-').process([None, '-help']))
-        #self.assertTrue(Simple(option_prefix='-').process([None, '-help']))
+        self.assertTrue(Simple(option_prefix='-').process([None, '-help']))
 
 
 if __name__ == '__main__':
