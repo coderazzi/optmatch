@@ -48,10 +48,10 @@ class Decoration(object):
     """
     Internal namespace to define any decoration functionality
     optmatcher decorator adds an attribute 'optmatcher' that contains
-        the list of parameters provided in the decorator definition, 
+        the list of parameters provided in the decorator definition,
         like flags, options, etc, in a given order
-    optset decorator behaves as the optmatcher one, but adds a 
-        second attribute to the function/method: 'optset', with 
+    optset decorator behaves as the optmatcher one, but adds a
+        second attribute to the function/method: 'optset', with
         value True
     """
 
@@ -74,7 +74,7 @@ class Decoration(object):
             return f
 
         # perhaps the base decorator is called with the function to decorate
-        # see http://coderazzi.net/tnotes/python/decorators_without_arguments.html
+        # http://coderazzi.net/tnotes/python/decorators_without_arguments.html
         if (args[0] and not filter(None, args[1:]) and
                 type(args[0]) == type(decorate)):
             return decorate(args[0], [])
@@ -208,7 +208,7 @@ class CommandLine(object):
 
     def set_arg_handled(self):
         """Reports that the current argument has been handled.
-        It returns True if there are no more arguments to handle or the 
+        It returns True if there are no more arguments to handle or the
             next argument is an option
         """
         if self.next >= len(self.args):
@@ -308,7 +308,8 @@ class FlagInfo(ArgumentInfo):
     def aliases_as_str(self):
         """Produces, for example: "-m MODE, --mode MODE" """
         return ', '.join(['%s%s%s' % (self._get_prefix(i), i,
-                                      self._get_suffix(i)) for i in self.aliases])
+                                      self._get_suffix(i))
+                          for i in self.aliases])
 
     def get_doc(self):
         """Returns the doc provided for the given aliases"""
@@ -352,15 +353,17 @@ class OptMatcherInfo(object):
     """Internal class, holds the information associated to each matcher"""
 
     DECORATOR_ASSIGN = re.compile('(.+?)\\s+as\\s+(.+)')
-    FLAG_PATTERN = re.compile('(.+)(Flag|Option|OptionInt|OptionFloat|Prefix|'
-                              '_flag|_option|_option_int|_option_float|_prefix)$')
+    FLAG_PATTERN = re.compile('(.+)'
+                              '(Flag|Option|OptionInt|OptionFloat|Prefix|'
+                              '_flag|_option|_option_int|'
+                              '_option_float|_prefix)$')
 
     def __init__(self, func, mode):
         self.mode = mode
         self._initialize_parameters_information(func)
 
         # With getoptmode, in addition to the normal definitions, users
-        # can specify short options, stored in sorted_defs 
+        # can specify short options, stored in sorted_defs
         self.defs = set()  # definitions (flags/options/prefixes)
         if mode.getopt:
             self.short_defs = set()
@@ -520,7 +523,7 @@ class OptMatcherInfo(object):
             # in this case, it applies if the matcher is not exclusive
             return not matcher_handler.group
         # only invoked on optset' methods, where self.gorup is None or a r.e.
-        return self.group.match(matcher_handler.func.__name__) != None
+        return self.group.match(matcher_handler.func.__name__) is not None
 
     def support_vargs(self):
         """Returns whether it accepts *vars"""
@@ -531,7 +534,7 @@ class OptMatcherInfo(object):
         return isinstance(self.kwargs, dict)
 
     def get_options(self):
-        """Returns the defined flags, options and prefixes 
+        """Returns the defined flags, options and prefixes
         as a list of ArgumentInfo instances (FlagInfo or OptionsInfo, in fact)
         """
 
@@ -551,9 +554,9 @@ class OptMatcherInfo(object):
             ret.sort(key=lambda x: x.name)
             return ret
 
-        return get_options_and_defaults(self.flags, FlagInfo) + \
-               get_options_and_defaults(self.options, OptionInfo) + \
-               get_options_and_defaults(self.prefixes, PrefixInfo)
+        return (get_options_and_defaults(self.flags, FlagInfo)
+                + get_options_and_defaults(self.options, OptionInfo)
+                + get_options_and_defaults(self.prefixes, PrefixInfo))
 
     def get_parameters(self):
         """Returns the defined parameters as a [ArgumentInfo instances]"""
@@ -629,7 +632,7 @@ class OptMatcherInfo(object):
         for s, t in aliases.items():
             if self.mode.getopt:
                 # In getoptmode, aliases must map short and long options,
-                #   that is, options with 1 character and options with more 
+                #   that is, options with 1 character and options with more
                 #   than 1 character
                 if len(s) > len(t):
                     s, t = t, s
@@ -667,7 +670,7 @@ class OptMatcherInfo(object):
 
     def _get_parameters_info(self, f):
         # This information includes: the list of variables, if it supports
-        #   varargs, and if it supports kwargs 
+        #   varargs, and if it supports kwargs
         flags, first_arg = f.func_code.co_flags, hasattr(f, 'im_self')
         varnames = f.func_code.co_varnames[first_arg:f.func_code.co_argcount]
         return list(varnames), (flags & 0x0004) != 0, (flags & 0x0008) != 0
@@ -705,7 +708,8 @@ class OptMatcherHandler(OptMatcherInfo):
         def something_provided():
             # just check if the user provided any value.
             return self.provided_pars or filter(lambda x: x != [],
-                                               self.provided.values())
+                                                self.provided.values())
+
         # It can, if all the options/parameters are specified or have defaults
         error_reason = self._get_invoking_pars()[0]
         return (required or something_provided()) and error_reason
@@ -741,7 +745,7 @@ class OptMatcherHandler(OptMatcherInfo):
         # These are not passed to the method, but must have been provided to
         # consider that the method can be invoked
         for c in range(self.orphan_flags, 0):
-            if not c in self.provided:
+            if c not in self.provided:
                 return 'Missing required ' + self.get_index_name(c), None, None
 
         return None, args, self.kwargs or {}
@@ -806,7 +810,7 @@ class OptMatcherHandler(OptMatcherInfo):
         """Handles one short argument in the command line"""
         # This method is only called for getopt mode
         name = cmd.name
-        if not name in self.short_defs:
+        if name not in self.short_defs:
             # in shorts, name is just one letter, so not inclusion in
             # short_defs means that it is neither a prefix, do no more checks
             return 'Unexpected flag ' + name + ' in argument ' + cmd.arg
@@ -884,7 +888,7 @@ class UsageAccessor(object):
     def add_line(self, content=None, column=0):
         """
         Format method, adds a new line, and places the content on the
-        given column. See add method 
+        given column. See add method
         """
         self.content.append('')
         if content:
@@ -893,11 +897,11 @@ class UsageAccessor(object):
     def add(self, content, column=0):
         """
         Format method, adds content on the current line at the given position.
-        If the current content already covers that column, a new one is 
-        inserted. 
-        If the content spawns multiple lines, each start at the 
+        If the current content already covers that column, a new one is
+        inserted.
+        If the content spawns multiple lines, each start at the
         same position
-        The content can be a string, or a list of objects. As a list 
+        The content can be a string, or a list of objects. As a list
         of objects, splitting on multiple lines can only happen for full
         objects; for strings, it is done at each space character.
         No care is taken for any special characters, specially '\n'
@@ -924,7 +928,7 @@ class UsageAccessor(object):
         self.content.append(current.rstrip())
 
     def get_usage_string(self, width=72, column=24, ident=2,
-                       include_usage=True, include_alternatives=True):
+                         include_usage=True, include_alternatives=True):
         """Generic method to print the usage. By default, the window
         output is limited to 72 characters, with information for each option
         positioned on the column 24.
@@ -1057,7 +1061,7 @@ class UsageAccessor(object):
         # Adds all the options of the given alternative to the passed options
         for h in self.handlers[alternative]:
             for option in h.get_options():
-                if not option.name in options:
+                if option.name not in options:
                     options[option.name] = option
             if h.supports_k_w_args():
                 break
@@ -1073,37 +1077,37 @@ class OptionMatcher(object):
                  option_var_names=None, option_prefix='--', assigner='=',
                  default_help=True):
         """
-        Param aliases is a map, allowing setting option aliases. 
+        Param aliases is a map, allowing setting option aliases.
             In getopt mode, all aliases must be defined between a short
             (1 character length) option and a long (>1 character length)
             option
         Param public_names is a map, allowing renaming the existing flags/
             options/prefixes or parameter names. For example 'd': 'dry-run'
-            will convert the 'd' flag to expect 'dry-run' instead 
+            will convert the 'd' flag to expect 'dry-run' instead
         Param options_var_names identifies, for options and prefixes, the
-            variable name used during the usage output. For example, 
+            variable name used during the usage output. For example,
             option 'm' would be visualized by default as '-m M', unless
             this option is used.
-            For aliases, it is possible to define the var name for 
-            any of the given aliases -if different names are supplied 
+            For aliases, it is possible to define the var name for
+            any of the given aliases -if different names are supplied
             for two aliases of the same option, one will be dismissed-
         Param options_help defines the information associated to each
             option. It is map from option's name to its documentation.
-            For aliases, it is possible to define the documentation for 
-            any of the given aliases -if different info is supplied 
+            For aliases, it is possible to define the documentation for
+            any of the given aliases -if different info is supplied
             for two aliases of the same option, one will be dismissed-
         Param options_var_names identifies, for options and prefixes, the
-            variable name used during the usage output. For example, 
+            variable name used during the usage output. For example,
             option 'm' would be visualized by default as '-m M', unless
             this option is used.
-            For aliases, it is possible to define the var name for 
-            any of the given aliases -if different names are supplied 
+            For aliases, it is possible to define the var name for
+            any of the given aliases -if different names are supplied
             for two aliases of the same option, one will be dismissed-
         Param option_prefix defines the prefix used to characterize an argument
-            as an option. If is defined as '--', it implies 
-            automatically getopt mode, which enables the usage of short 
+            as an option. If is defined as '--', it implies
+            automatically getopt mode, which enables the usage of short
             options with prefix -
-        Param assigner defines the character separating options' name 
+        Param assigner defines the character separating options' name
             and value
         Param default_help is True to automatically show the usage when the
             user requests the --help option (or -h)
@@ -1147,9 +1151,9 @@ class OptionMatcher(object):
 
     def process(self, args, gnu=False, handle_usage_problems=True):
         """Processes the given command line arguments
-        Param gnu determines gnu behaviour. Is True, no-option 
+        Param gnu determines gnu behaviour. Is True, no-option
             arguments can be only specified latest
-        Param handle_usage_problems. If not False, it automatically catches 
+        Param handle_usage_problems. If not False, it automatically catches
             UsageExceptions, returning the value handle_usage_problems
         """
         matchers, commons = self._create_handlers()
@@ -1163,9 +1167,11 @@ class OptionMatcher(object):
         try:
             for handler in matchers:
                 # only use the common handlers that apply to the matcher
-                assoc_commons = filter(lambda x: x.applies_to_matcher(handler),
-                                      commons)
-                problem = self._try_handlers(assoc_commons, handler, command_line)
+                assoc_commons = filter(lambda x:
+                                       x.applies_to_matcher(handler),
+                                       commons)
+                problem = self._try_handlers(assoc_commons,
+                                             handler, command_line)
                 if not problem:
                     # ok: invoke common handler, then matcher's handler
                     for each in assoc_commons:
@@ -1180,7 +1186,7 @@ class OptionMatcher(object):
                     each.reset()
             raise UsageException(highest_problem[1])
         except UsageException as ex:
-            if handle_usage_problems != False:
+            if handle_usage_problems is not False:
                 import sys
                 sys.stderr.write(str(ex) + '\n')
                 return handle_usage_problems
@@ -1220,10 +1226,10 @@ class OptionMatcher(object):
         if self._default_help:
             # cannot decorate directly print_help, any instance would
             # get the decoration!
-            f = lambda: self.print_help()
-            f.__doc__ = self.print_help.__doc__
+            def surrogate(): return self.print_help()
+            surrogate.__doc__ = self.print_help.__doc__
             matchers.append(create_handle(optmatcher(
-                flags='help', exclusive=True)(f)))
+                flags='help', exclusive=True)(surrogate)))
 
         return matchers, commons
 
@@ -1260,7 +1266,7 @@ def optmatcher(flags=None, options=None, int_options=None,
                priority=None, exclusive=False):
     """Decorator defining a function / method as optmatcher choice"""
 
-    if exclusive != True and exclusive != False:
+    if exclusive not in [True, False]:
         raise OptionMatcherException('exclusive value must be True or False')
 
     return Decoration.decorate(False, flags, options, int_options,
@@ -1273,7 +1279,7 @@ def optset(flags=None, options=None, int_options=None,
            priority=None, applies=None):
     """Decorator defining a function / method as optset choice"""
 
-    if applies != None:
+    if applies is not None:
         try:
             # convert applies into a regular expression, if possible
             # i.e, handle, handle_b* is converted into (handle|handle_b.*)
@@ -1286,4 +1292,3 @@ def optset(flags=None, options=None, int_options=None,
     return Decoration.decorate(True, flags, options, int_options,
                                float_options, prefixes, rename_pars, priority,
                                applies)
-
