@@ -2,12 +2,13 @@ import os
 import sys
 import unittest
 
-sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'src'))
-if sys.version_info.major == 2:
-    optmatch = __import__('optmatch2')
-else:
-    optmatch = __import__('optmatch3')
+# sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'src'))
+# if sys.version_info.major == 2:
+#     optmatch = __import__('optmatch2')
+# else:
+#     optmatch = __import__('optmatch3')
 
+import optmatch
 CommandLine = optmatch.CommandLine
 OptMatcherHandler = optmatch.OptMatcherHandler
 OptionMatcher = optmatch.OptionMatcher
