@@ -343,7 +343,7 @@ alternatives:
             the following example:</p>
 
         <pre>@optmatcher
-	def handle(self, dry_run_flag):
+def handle(self, dry_run_flag):
 		...	</pre>
 
         <p>expects the flag <i>dry-run</i>, instead of the flag
@@ -353,14 +353,14 @@ alternatives:
             specification. The previous example is equivalent to:</p>
 
         <pre>@optmatcher(flags='d as dry-run')
-	def handle(self, d):
+def handle(self, d):
 		...	</pre>
 
         <p>Obviously, this possibility allows defining any kind of option, using all kind
             of illegal variable names:</p>
 
         <pre>@optmatcher(flags='d as @f***ing!')
-	def handle(self, d):
+def handle(self, d):
 		...	</pre>
 
         <p>Yes, this handler expects a flag <i>--@f***ing!</i></p>
@@ -379,14 +379,14 @@ alternatives:
             possible to use the decorator <b>optset</b>, like in:
 
         <pre>@optset
-	def handle_help(self, help_flag):
+def handle_help(self, help_flag):
 		...	</pre>
 
         <p>It is quite equivalent to the <b>optmatcher</b> decorator, so
             it is possible to specify its behaviour through the decorator:</p>
 
         <pre>@optset(flags='help')
-	def handle_help(self, help):
+def handle_help(self, help):
 		...	</pre>
 
         <p>These handlers are called, for convenience, when possible. That it, if, in the previous
@@ -395,7 +395,7 @@ alternatives:
             been defined with default values, like in:</p>
 
         <pre>@optset(flags='help')
-	def handle_help(self, help=False):
+def handle_help(self, help=False):
 		...	</pre>
 
         <p>In this case, the method will be always called, which simplifies setting some common
@@ -411,7 +411,7 @@ alternatives:
         <p>This could be defined as:</p>
 
         <pre>@optset
-	def handle_test(self, test_flag, file_option):
+def handle_test(self, test_flag, file_option):
 		...	</pre>
 
         <p>If the user specifies <i>--test</i> but not
@@ -422,11 +422,11 @@ alternatives:
             to limit the scope of a <b>optset</b> handler to one or several matchers:</p>
 
         <pre>@optset(applies='zip')
-	def handle_test(self, test_flag, file_option):
+def handle_test(self, test_flag, file_option):
 		...	
 
 @optmatcher
-	def zip(self, file):
+def zip(self, file):
 		...	
 		</pre>
 
@@ -434,7 +434,7 @@ alternatives:
             using limited regular expressions:</p>
 
         <pre>@optset(applies='zip, test*')
-	def handle_test(self, test_flag, file_option):
+def handle_test(self, test_flag, file_option):
 		...	</pre>
 
         <p>In this case, it would apply to the method <i>zip</i>, and to
@@ -445,7 +445,7 @@ alternatives:
             unless a matcher specifies <b>exclusive=True</b>, such as:</p>
 
         <pre>@optmatcher(exclusive=True)
-	def handle(self, test_flag, file_option):
+def handle(self, test_flag, file_option):
 		...	</pre>
 
 
@@ -522,7 +522,7 @@ alternatives:
 
             <li>Defining an explicit help matcher, such as:
                 <pre>optmatcher
-	def handle_help(self, help_flag):
+def handle_help(self, help_flag):
 		...	</pre>
             </li>
         </ul>
