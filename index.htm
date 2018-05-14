@@ -32,7 +32,7 @@
             </ul>
             <li><a href="#history">History</a></li>
             <li><a href="#issues">Issues</a></li>
-            <li><a href="#download">Download</a></li>
+            <li><a href="#install">Install</a></li>
         </ul>
 
 
@@ -643,6 +643,12 @@ def handle(self, d):
         <h2><a name='history'>History</a></h2>
 
         <ul>
+            <li>Version 0.9.1, 14th May 2018.
+                <ul>
+                    <li>Single file supporting now python 2 and 3.</li>
+                    <li>Include as standard Pypi packages</li>
+                </ul>
+            </li>
             <li>Version 0.9.0, 13th May 2018. Included support for naming convention based on underscores
                 (not only camelCase). Also, the library itself is now using the default python syntax, with
                 all methods, variables using underscores.
@@ -678,54 +684,43 @@ def handle(self, d):
         <p>There is also a <a href="https://groups.google.com/forum/#!forum/optmatch">forum</a>
             to discuss any related topics</p>
 
-        <h2><a name='download'>Download</a></h2>
+        <h2><a name='install'>Install</a></h2>
 
         <p>The project is hosted on a <b>mercurial <a href="https://bitbucket.org/coderazzi/optmatch">repository</a></b>
             at Bitbucket (project name: optmatch)</p>
 
-        <ul>
-            <li>Current version is 0.9.0, released the 13th May 2018:
+        <p>The easiest way to install it is using the standard <b>pip</b>:
+            <pre>pip install optmatch</pre>
+            It works for python 2 and 3. In any case, the library is a single python file,
+            which can be tested without updating any site packages.<ul>
+            <li>Current version is 0.9.1, released the 14th May 2018:
                 <ul>
-                    <li>Python 3.x version:
-                        <a href='https://bitbucket.org/coderazzi/optmatch/raw/default/src/optmatch3.py'>optmatch3.py</a>
-                    </li>
-                    <li>Python 2.x version (requires Python 2.4 or later):
-                        <a href='https://bitbucket.org/coderazzi/optmatch/raw/default/src/optmatch3.py'>optmatch2.py</a>
-                    </li>
-
-                    <li>Unit tests:
-                        <a href='https://bitbucket.org/coderazzi/optmatch/raw/default/test/tests.py'>tests.py</a>
-                    </li>
+                    <li><a href='https://bitbucket.org/coderazzi/optmatch/raw/default/src/optmatch.py'>optmatch.py</a></li>
+                    <li>Unit tests: <a href='https://bitbucket.org/coderazzi/optmatch/raw/default/test/tests.py'>tests.py</a></li>
                 </ul>
             </li>
-        </ul>
+        </ul></o>
 
-        <p><b>optmatch</b> is open source, with the
-            following generic python license:</p>
+        <p><b>optmatch</b> is open source, distributed with MIT license:</p>
         <pre>Copyright (c) Luis M. Pena &lt;lu@coderazzi.net&gt;  All rights reserved.
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Redistributions of source code must retain the above copyright
-notice, this list of conditions and the following disclaimer.
-Redistributions in bytecode form must reproduce the above copyright
-notice, this list of conditions and the following disclaimer in
-the documentation and/or other materials provided with the
-distribution.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 </pre>
 
     </div>
