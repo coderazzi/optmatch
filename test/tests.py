@@ -1622,43 +1622,6 @@ class OptMatcherTestsOnDecoration(Tests):
 
         self.assertTrue(Simple().process([None, '-vo']))
 
-    def test3016(self):
-        """defining a parameter with different name"""
-
-        class Simple(OptionMatcher):
-
-            @optmatcher(flags='o', rename_pars='va as file')
-            def handleA(self, o, va):
-                return o and va == 'f'
-
-        self.assertTrue(Simple().process([None, '-o', 'f']))
-
-    def test3017(self):
-        """Renaming a parameter without as"""
-
-        class Simple(OptionMatcher):
-
-            @optmatcher(rename_pars='v')
-            def handleA(self, v):
-                return True
-
-        self.assertRaiseArg(OptionMatcherException,
-                            'Invalid rename_par v',
-                            Simple().process, [None])
-
-    def test3018(self):
-        """Renaming a parameter with invalid as"""
-
-        class Simple(OptionMatcher):
-
-            @optmatcher(rename_pars='v as v')
-            def handleA(self, v):
-                return True
-
-        self.assertRaiseArg(OptionMatcherException,
-                            'Invalid rename_par v',
-                            Simple().process, [None])
-
     def test3019(self):
         """Defining a non existing option"""
 
@@ -1733,16 +1696,16 @@ class OptMatcherTestsOnDecoration(Tests):
 
             @optmatcher(flags='o,v', options='w', prefixes='d as D',
                         int_options='i', float_options='f',
-                        rename_pars='par as class', priority=1)
-            def handleA(self, o, v, w, d, i, f, par):
-                return o, v, w, d, i, f, par
+                        priority=1)
+            def handleA(self, o, v, w, d, i, f):
+                return o, v, w, d, i, f
 
-        args = [None, '-oww', '-vi1', '-f', '2.3', '-Dvalue', 'class']
+        args = [None, '-oww', '-vi1', '-f', '2.3', '-Dvalue']
         self.assertEqual(Simple().process(args),
                          (True, True, 'w', [('value', None)],
-                          1, 2.3, 'class'))
+                          1, 2.3))
 
-    def test3022(self):
+    def test3032(self):
         """Full decoration, using also optset"""
 
         class Simple(OptionMatcher):
@@ -1753,17 +1716,16 @@ class OptMatcherTestsOnDecoration(Tests):
 
             @optmatcher(flags='o,v', options='w', prefixes='d as D',
                         int_options='i', float_options='f',
-                        rename_pars='par as class', priority=1)
-            def handleA(self, o, v, w, d, i, f, par):
-                return self.m, o, v, w, d, i, f, par
+                        priority=1)
+            def handleA(self, o, v, w, d, i, f):
+                return self.m, o, v, w, d, i, f
 
-        args = [None, '-oww', '--mode=23', '-vi1', '-f', '2.3', '-Dvalue',
-                'class']
+        args = [None, '-oww', '--mode=23', '-vi1', '-f', '2.3', '-Dvalue']
         self.assertEqual(Simple().process(args),
                          (23, True, True, 'w', [('value', None)],
-                          1, 2.3, 'class'))
+                          1, 2.3))
 
-    def test3031(self):
+    def test3033(self):
         """Setting priorities"""
 
         class Simple(OptionMatcher):
@@ -1885,19 +1847,6 @@ class OptMatcherTestsOnErrorMessages(Tests):
 
         self.assertRaiseArg(UsageException,
                             'Missing required parameter name',
-                            Simple().process, [None],
-                            handle_usage_problems=False)
-
-    def test4005(self):
-        """Message error: required parameter, changed on decorator"""
-
-        class Simple(OptionMatcher):
-
-            @optmatcher(rename_pars='c as class')
-            def handleA(self, c): pass
-
-        self.assertRaiseArg(UsageException,
-                            'Missing required parameter class',
                             Simple().process, [None],
                             handle_usage_problems=False)
 

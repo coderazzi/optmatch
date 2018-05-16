@@ -37,7 +37,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE."""
 
 _COMMA_SPLIT = re.compile('\\s*,\\s*')
-_NON_ALPHANUMERICAL = re.compile('[^a-zA-Z0-9]')
 
 if sys.version_info.major == 2:
     def get_default_values(f):
@@ -48,8 +47,8 @@ if sys.version_info.major == 2:
 
     def get_flags_and_parameter_names(f):
         flags, first_arg = f.func_code.co_flags, hasattr(f, 'im_self')
-        var_names = f.func_code.co_varnames[first_arg:f.func_code.co_argcount]
-        return flags, var_names
+        par_names = f.func_code.co_varnames[first_arg:f.func_code.co_argcount]
+        return flags, par_names
 else:
     def get_default_values(f):
         return f.__defaults__
@@ -59,8 +58,8 @@ else:
 
     def get_flags_and_parameter_names(f):
         flags, first_arg = f.__code__.co_flags, hasattr(f, '__self__')
-        var_names = f.__code__.co_varnames[first_arg:f.__code__.co_argcount]
-        return flags, var_names
+        par_names = f.__code__.co_varnames[first_arg:f.__code__.co_argcount]
+        return flags, par_names
 
 
 class Decoration(object):
@@ -101,20 +100,20 @@ class Decoration(object):
         return lambda x: decorate(x, args)
 
     @staticmethod
-    def parse_decoration(function):
+    def parse_decoration(func):
         # Parses the optmatcher decoration in the given function.
         # If specified, it returns a tuple Info, group, priority,
         #  or (None, None, None) otherwise, where Info is the ordered list
         #  of the decorator parameters
 
         def parser(flags=None, options=None, int_options=None,
-                   float_options=None, prefixes=None, rename_pars=None,
-                   priority=None, group=None):
-            return (flags, options, int_options, float_options, prefixes,
-                    rename_pars), group, priority
+                   float_options=None, prefixes=None,  priority=None,
+                   group=None):
+            return ((flags, options, int_options, float_options, prefixes),
+                    group, priority)
 
         try:
-            return parser(*function.optmatcher)
+            return parser(*func.optmatcher)
         except AttributeError:
             return None, None, None
 
@@ -371,6 +370,7 @@ class PrefixInfo(OptionInfo):
 class OptMatcherInfo(object):
     """Internal class, holds the information associated to each matcher"""
 
+    _NON_ALPHANUM = re.compile('[^a-zA-Z0-9]')
     DECORATOR_ASSIGN = re.compile('(.+?)\\s+as\\s+(.+)')
     FLAG_PATTERN = re.compile('(.+)'
                               '(Flag|Option|OptionInt|OptionFloat|Prefix|'
@@ -417,22 +417,22 @@ class OptMatcherInfo(object):
         self.orphan_flags = 0  # flags without associated variable
         self.func = func
 
-        vars, self.vararg, kwarg = self._get_parameters_info(func)
+        par_names, self.vararg, kwarg = self._get_parameters_info(func)
         # if kwargs are supported, kwargs is used as a dictionary
         self.kwargs = kwarg and not self.mode.getopt and {}
         # note that self.group is used for 'applies' and 'exclusive'
         decoration, self.group, priority = Decoration.parse_decoration(func)
         if decoration and any(filter(None, decoration)):
-            self._initialize_parameters_from_decorator(vars, *decoration)
+            self._initialize_parameters_from_decorator(par_names, *decoration)
         else:
-            self._initialize_parameters_from_signature(vars)
+            self._initialize_parameters_from_signature(par_names)
 
             # get default values
         defs = list(get_default_values(func) or [])
         first_def = self.last_arg - len(defs)
         self.defaults = dict([(i + first_def, d) for i, d in enumerate(defs)])
 
-    def _initialize_parameters_from_signature(self, vars):
+    def _initialize_parameters_from_signature(self, par_names):
         # Initializes the metadata from the function's parameter names
 
         def uncamel(word):
@@ -448,7 +448,7 @@ class OptMatcherInfo(object):
                 transform = i.islower()
             return ''.join(ret)
 
-        for var in vars:
+        for var in par_names:
             match = self.FLAG_PATTERN.match(var)
             if match:
                 use_name, what = uncamel(match.group(1)), match.group(2)
@@ -470,9 +470,9 @@ class OptMatcherInfo(object):
                 self.pars[self.last_arg] = var
             self.last_arg += 1
 
-    def _initialize_parameters_from_decorator(self, var_names, flags, options,
+    def _initialize_parameters_from_decorator(self, par_names, flags, options,
                                               int_options, float_options,
-                                              prefixes, parameters):
+                                              prefixes):
 
         def get_decoration_definitions(decoration):
             # The returned value maps names to 'as' values, if present, or to
@@ -497,12 +497,11 @@ class OptMatcherInfo(object):
         # import_folder (but also import__folder).
         # It also enables the usage of reserved words: a flag 'import' could
         # be associated to a variable import_', for example
-        var_names = [_NON_ALPHANUMERICAL.sub('', v) for v in var_names]
+        par_names = [self._NON_ALPHANUM.sub('', v) for v in par_names]
         ints, floats, used = {}, {}, []
         for att, group in [(self.flags, flags),
                            (self.options, options),
                            (self.prefixes, prefixes),
-                           (self.pars, parameters),
                            (ints, int_options),
                            (floats, float_options)]:
             # in the following loop, n defines each parameter name given
@@ -510,11 +509,9 @@ class OptMatcherInfo(object):
             # v defines the public name (n as v)
             for name, value in get_decoration_definitions(group).items():
                 # get the index of the var: is an error if not found or
-                # if it is reused (already included in self.pars)
-                if att is self.pars and (not value or name == value):
-                    raise OptionMatcherException('Invalid rename_par ' + name)
+                # if it is reused
                 try:
-                    index = var_names.index(_NON_ALPHANUMERICAL.sub('', name))
+                    index = par_names.index(self._NON_ALPHANUM.sub('', name))
                 except ValueError:
                     if att is self.flags and not value:
                         # a flag could be not existing as argument, as
@@ -534,14 +531,14 @@ class OptMatcherInfo(object):
         self.pars = dict([(a, b) for b, a in self.pars.items()])
         # all function parameters that are not included as flags/options/
         # prefixes are definitely considered parameters
-        self.pars.update(dict([(i + 1, v) for i, v in enumerate(var_names)
+        self.pars.update(dict([(i + 1, v) for i, v in enumerate(par_names)
                                if i not in used]))
         # int_options and float_options are options with additional checks:
         self.options.update(ints)
         self.options.update(floats)
         self.converts = dict([(i, self._as_float) for i in floats.values()])
         self.converts.update(dict([(i, self._as_int) for i in ints.values()]))
-        self.last_arg = len(var_names) + 1
+        self.last_arg = len(par_names) + 1
 
     def applies_to_matcher(self, matcher_handler):
         """Returns true if this 'optset' handler applies to the matcher"""
@@ -992,7 +989,6 @@ class UsageAccessor(object):
                 self.add_line()
                 self.add_line('alternatives:')
                 for i in range(alternatives):
-                    print("$$$$$", type(alt_options[i]), alt_options[i])
                     content = alt_options[i] + alt_params[i]
                     self.add_line()
                     self.add_line('*')
@@ -1294,22 +1290,20 @@ class UsageException(OptionMatcherException):
     """Exception raised while handling an argument"""
 
 
-def optmatcher(flags=None, options=None, int_options=None,
-               float_options=None, prefixes=None, rename_pars=None,
-               priority=None, exclusive=False):
+def optmatcher(flags=None, options=None, int_options=None, float_options=None,
+               prefixes=None, priority=None, exclusive=False):
     """Decorator defining a function / method as optmatcher choice"""
 
     if exclusive not in [True, False]:
         raise OptionMatcherException('exclusive value must be True or False')
 
     return Decoration.decorate(False, flags, options, int_options,
-                               float_options, prefixes, rename_pars, priority,
+                               float_options, prefixes, priority,
                                exclusive)
 
 
-def optset(flags=None, options=None, int_options=None,
-           float_options=None, prefixes=None, rename_pars=None,
-           priority=None, applies=None):
+def optset(flags=None, options=None, int_options=None, float_options=None,
+           prefixes=None, priority=None, applies=None):
     """Decorator defining a function / method as optset choice"""
 
     if applies is not None:
@@ -1323,5 +1317,4 @@ def optset(flags=None, options=None, int_options=None,
             raise OptionMatcherException('Invalid applies value: ' + applies)
 
     return Decoration.decorate(True, flags, options, int_options,
-                               float_options, prefixes, rename_pars, priority,
-                               applies)
+                               float_options, prefixes, priority, applies)
