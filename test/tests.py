@@ -1,5 +1,6 @@
-import os
-import sys
+# note that testing source version can be easily done as:
+# (export PYTHONPATH=../src/:$PYTHONPATH && python tests.py BugTests.bug00001_a)
+
 import unittest
 
 from optmatch import CommandLine, OptMatcherHandler, UsageMode
@@ -2225,6 +2226,50 @@ options:
                 return True
 
         self.assertTrue(Simple(option_prefix='-').process([None, '-help']))
+
+
+class BugTests(Tests):
+    """Bug tests"""
+
+    def bug00001_a(self):
+        """Options with underscores are not properly handled:  an options='import_folder' will require user
+            to enter '--import_folder' This problem does not happen if option specified as 'import_folder_option'
+            Note that entering options='import-folder' would raise an Exception
+
+            Case 1: cannot define an option as 'import-folder': 0.9.1 raises an exception
+            optmatch.OptionMatcherException: Invalid argument: import-folder
+            """
+
+        class Simple(OptionMatcher):
+
+            @optmatcher( options='import-folder')
+            def load_fail(self, import_folder,  database):
+                return database, import_folder
+
+        self.assertEqual(('database', 'folder'), Simple().process([None, '--import-folder=folder', 'database']))
+
+    def bug00001_b(self):
+        """Options with underscores are not properly handled:  an options='import_folder' will require user
+            to enter '--import_folder' This problem does not happen if option specified as 'import_folder_option'
+            Note that entering options='import-folder' would raise an Exception
+
+            Case 2: option is defined as import_folder, but then user cannot enter --import-folder
+              It works fine if entered as parameter name, with underscores
+            """
+
+        class Simple(OptionMatcher):
+
+            @optmatcher
+            def load_ok(self, import_path_option,  database):
+                return database, import_path_option
+
+            @optmatcher(options='import-folder')
+            def load_fail(self, import_folder,  database):
+                return database, import_folder
+
+        self.assertEqual(('database', 'folder'), Simple().process([None, '--import-path=folder', 'database']))
+        self.assertEqual(('database', 'folder'), Simple().process([None, '--import-folder=folder', 'database']))
+
 
 
 if __name__ == '__main__':

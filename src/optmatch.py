@@ -37,6 +37,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE."""
 
 _COMMA_SPLIT = re.compile('\\s*,\\s*')
+_NON_ALPHANUMERICAL = re.compile('[^a-zA-Z0-9]')
 
 if sys.version_info.major == 2:
     def get_default_values(f):
@@ -469,7 +470,7 @@ class OptMatcherInfo(object):
                 self.pars[self.last_arg] = var
             self.last_arg += 1
 
-    def _initialize_parameters_from_decorator(self, vars, flags, options,
+    def _initialize_parameters_from_decorator(self, var_names, flags, options,
                                               int_options, float_options,
                                               prefixes, parameters):
 
@@ -491,6 +492,12 @@ class OptMatcherInfo(object):
                             ret[d] = None
             return ret
 
+        # variables match is done dismissing any non alphanumerical characters
+        # this would match an option 'import-folder' to a variable
+        # import_folder (but also import__folder).
+        # It also enables the usage of reserved words: a flag 'import' could
+        # be associated to a variable import_', for example
+        var_names = [_NON_ALPHANUMERICAL.sub('', v) for v in var_names]
         ints, floats, used = {}, {}, []
         for att, group in [(self.flags, flags),
                            (self.options, options),
@@ -501,39 +508,40 @@ class OptMatcherInfo(object):
             # in the following loop, n defines each parameter name given
             # in the decorator for each group (flags, options, etc), while
             # v defines the public name (n as v)
-            for n, v in get_decoration_definitions(group).items():
-                # get the index of the var: is an error if not found or reused
-                if att is self.pars and (not v or n == v):
-                    raise OptionMatcherException('Invalid rename_par ' + n)
+            for name, value in get_decoration_definitions(group).items():
+                # get the index of the var: is an error if not found or
+                # if it is reused (already included in self.pars)
+                if att is self.pars and (not value or name == value):
+                    raise OptionMatcherException('Invalid rename_par ' + name)
                 try:
-                    index = vars.index(n)
+                    index = var_names.index(_NON_ALPHANUMERICAL.sub('', name))
                 except ValueError:
-                    if att is self.flags and not v:
+                    if att is self.flags and not value:
                         # a flag could be not existing as argument, as
                         # the flag value is not really interesting. In this
                         # case, makes no sense defining it as 'var as name'
                         self.orphan_flags -= 1
-                        att[n] = self.orphan_flags
+                        att[name] = self.orphan_flags
                         continue
-                    raise OptionMatcherException('Invalid argument: ' + n)
+                    raise OptionMatcherException('Invalid argument: ' + name)
                 if index in used:
                     raise OptionMatcherException(
-                        'Invalid argument redefinition: ' + n)
+                        'Invalid argument redefinition: ' + name)
                 used.append(index)
-                att[v or n] = 1 + index
+                att[value or name] = 1 + index
         # all groups are created as maps (name -> variable index), but for
         # params we invert the map, as the index is the important information
         self.pars = dict([(a, b) for b, a in self.pars.items()])
         # all function parameters that are not included as flags/options/
         # prefixes are definitely considered parameters
-        self.pars.update(dict([(i + 1, v) for i, v in enumerate(vars)
+        self.pars.update(dict([(i + 1, v) for i, v in enumerate(var_names)
                                if i not in used]))
         # int_options and float_options are options with additional checks:
         self.options.update(ints)
         self.options.update(floats)
         self.converts = dict([(i, self._as_float) for i in floats.values()])
         self.converts.update(dict([(i, self._as_int) for i in ints.values()]))
-        self.last_arg = len(vars) + 1
+        self.last_arg = len(var_names) + 1
 
     def applies_to_matcher(self, matcher_handler):
         """Returns true if this 'optset' handler applies to the matcher"""
