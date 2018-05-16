@@ -934,7 +934,7 @@ class UsageAccessor(object):
         if isinstance(content, str):
             content = content.split(' ')
         current = self.content.pop()
-        if column > 0 and current and len(current) + 1 > column:
+        if (column > 0) and current and (len(current) + 1 > column):
             self.content.append(current)
             current = ''
         started = not column and len(current.strip()) > 0
@@ -964,13 +964,14 @@ class UsageAccessor(object):
         else:
             options = self.get_all_options()
             alternatives = self.get_alternatives()
+            alt_options = [self.get_options(a) for a in range(alternatives)]
+            alt_params = [self.get_parameters(a) for a in range(alternatives)]
             if include_usage:
                 self.add('Usage:')
                 if alternatives == 1:
                     # if there is one single alternative, it is shown fully
                     # expanded, with options and default values
-                    self.add(self.get_options(0, True)
-                             + self.get_parameters(0))
+                    self.add(alt_options[0] + alt_params[0])
                 else:
                     # Otherwise, get_all_parameters provide the intersection of
                     # names among all alternatives
@@ -991,7 +992,8 @@ class UsageAccessor(object):
                 self.add_line()
                 self.add_line('alternatives:')
                 for i in range(alternatives):
-                    content = self.get_options(i) + self.get_parameters(i)
+                    print("$$$$$", type(alt_options[i]), alt_options[i])
+                    content = alt_options[i] + alt_params[i]
                     self.add_line()
                     self.add_line('*')
                     self.add(content, ident)
