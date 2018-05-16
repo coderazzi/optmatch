@@ -596,38 +596,6 @@ class OptMatcherInfo(object):
             ret.append(info)
         return ret
 
-    def set_public_names(self, public_names):
-        """Converts the existing flag/option/prefix/parameters"""
-        for old, new in public_names.items():
-            def_set = self._get_defs_group(old)
-            if old in def_set:
-                new_set = self._get_defs_group(new)
-                if new in new_set:
-                    raise OptionMatcherException('%s: invalid rename %s'
-                                                 % (self.describe(), new))
-                def_set.remove(old)
-                new_set.add(new)
-                for group in self.flags, self.options, self.prefixes:
-                    try:
-                        val = group[old]
-                        del group[old]
-                        group[new] = val
-                        break
-                    except KeyError:
-                        pass
-            else:
-                old_pos, used_pos = None, None
-                for pos, name in self.pars.items():
-                    if old == name:
-                        old_pos = pos
-                    if new == name:
-                        used_pos = pos
-                if old_pos and used_pos != old_pos:
-                    if used_pos:
-                        raise OptionMatcherException('%s: invalid rename %s'
-                                                     % (self.describe(), new))
-                    self.pars[old_pos] = new
-
     def set_aliases(self, aliases):
         """Sets aliases between option definitions."""
 
@@ -1101,7 +1069,7 @@ class OptionMatcher(object):
     It supports naturally the handling of mutually exclusive options.
     """
 
-    def __init__(self, aliases=None, public_names=None, options_help=None,
+    def __init__(self, aliases=None, options_help=None,
                  option_var_names=None, option_prefix='--', assigner='=',
                  default_help=True):
         """
@@ -1109,9 +1077,6 @@ class OptionMatcher(object):
             In getopt mode, all aliases must be defined between a short
             (1 character length) option and a long (>1 character length)
             option
-        Param public_names is a map, allowing renaming the existing flags/
-            options/prefixes or parameter names. For example 'd': 'dry-run'
-            will convert the 'd' flag to expect 'dry-run' instead
         Param options_var_names identifies, for options and prefixes, the
             variable name used during the usage output. For example,
             option 'm' would be visualized by default as '-m M', unless
@@ -1143,7 +1108,6 @@ class OptionMatcher(object):
         self._mode = UsageMode(option_prefix, assigner)
         self.enable_default_help(default_help)
         self.set_aliases(aliases)
-        self.set_public_names(public_names)
         self.set_usage_info(options_help, option_var_names)
 
     def enable_default_help(self, set=True):
@@ -1153,10 +1117,6 @@ class OptionMatcher(object):
     def set_aliases(self, aliases):
         """Sets the aliases. See __init__"""
         self._aliases = aliases
-
-    def set_public_names(self, public_names):
-        """Sets the public names. See __init__"""
-        self._public_names = public_names
 
     def set_usage_info(self, options_help, option_var_names):
         """Sets the usage information for each option. See __init__"""
@@ -1230,8 +1190,6 @@ class OptionMatcher(object):
             if not function:
                 return None
             ret = OptMatcherHandler(function, self._mode)
-            if self._public_names:
-                ret.set_public_names(self._public_names)
             if self._aliases:
                 ret.set_aliases(self._aliases)
             return ret
