@@ -1552,6 +1552,18 @@ class OptMatcherTestsOnDecoration(Tests):
 
         self.assertTrue(Simple().process([None, '-vo']))
 
+    def test3016(self):
+        """defining flags with as, with collision - one parameter is not used at all"""
+
+        class Simple(OptionMatcher):
+
+            @optmatcher(options='v1 as w1, w1')
+            def handle(self, v1, w1):
+                return v1, w1
+
+        Simple().process([None, '--help'])
+        self.assertEquals(('large', 'large'), Simple().process([None, '--w1=large']))
+
     def test3019(self):
         """Defining a non existing option"""
 
@@ -2149,6 +2161,80 @@ class BugTests(Tests):
         self.assertEqual(('database', 'folder'), Simple().process([None, '--import-path=folder', 'database']))
         self.assertEqual(('database', 'folder'), Simple().process([None, '--import-folder=folder', 'database']))
 
+    def bug00002_a(self):
+        """cannot create decorate flag / option with reserved word
+           case 1: not a bug: it can be used ' as ' on the definition
+        """
+
+        class Simple(OptionMatcher):
+
+            @optmatcher(flags='load as import')
+            def handle(self, load):
+                return load
+
+        self.assertTrue(Simple().process([None, '--import']))
+
+    def bug00002_b(self):
+        """cannot create decorate flag / option with reserved word
+           case 2: it can be used underscores otherwise
+        """
+
+        class Simple(OptionMatcher):
+
+            @optmatcher(flags='import')
+            def handle(self, import_):
+                return import_
+
+        self.assertTrue(Simple().process([None, '--import']))
+
+    def bug00002_c(self):
+        """cannot create decorate flag / option with reserved word
+           case 3: notation ' as ' is anyway required in some cases
+        """
+
+        class Simple(OptionMatcher):
+
+            @optmatcher(flags='dollar as $')
+            def handle(self, dollar): return dollar
+
+        self.assertTrue(Simple().process([None, '-$']))
+
+    def bug00002_d(self):
+        """cannot create decorate flag / option with reserved word
+           case 4: flag being a number
+        """
+
+        class Simple(OptionMatcher):
+
+            @optmatcher(flags='2')
+            def handle(self, _2): return _2
+
+        self.assertTrue(Simple().process([None, '-2']))
+
+    def bug00002_e(self):
+        """cannot create decorate flag / option with reserved word
+           case 5: forcing underscores
+        """
+
+        class Simple(OptionMatcher):
+
+            @optmatcher(flags='dry_run')
+            def handle(self, dry_run): return dry_run
+
+        self.assertTrue(Simple().process([None, '--dry_run']))
+
+    def bug00002_f(self):
+        """cannot create decorate flag / option with reserved word
+           case 5: forcing underscores, do not mind the 'as' map
+        """
+
+        class Simple(OptionMatcher):
+
+            @optmatcher(flags='dry_run as dry_run')
+            def handle(self, dry_run): return dry_run
+
+        #Simple().process([None, '-h'])
+        self.assertTrue(Simple().process([None, '--dry_run']))
 
 
 if __name__ == '__main__':

@@ -1113,18 +1113,22 @@ class OptionMatcher(object):
     def enable_default_help(self, set=True):
         """Enables the default help, under 'h' or 'help' """
         self._default_help = set
+        return self
 
     def set_aliases(self, aliases):
         """Sets the aliases. See __init__"""
         self._aliases = aliases
+        return self
 
     def set_usage_info(self, options_help, option_var_names):
         """Sets the usage information for each option. See __init__"""
         self._mode.set(options_help=options_help, var_names=option_var_names)
+        return self
 
     def set_mode(self, option_prefix, assigner):
         """Sets the working mode. See __init__"""
         self._mode.set(option=option_prefix, assigner=assigner)
+        return self
 
     def get_usage(self):
         """Returns an Usage object to handle the usage info"""

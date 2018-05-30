@@ -20,7 +20,7 @@
                 <li><a href="#basics">The Basics</a></li>
                 <li><a href="#basic_help">Predefined usage message</a></li>
                 <li><a href="#aliases">Aliases</a></li>
-                <li><a href="#publicnames">Public names</a></li>
+                <li><a href="#valid_identifiers">Valid identifiers</a></li>
                 <li><a href="#optset">optset</a></li>
                 <li><a href="#advanced_optset">Advanced optset</a></li>
                 <li><a href="#mode">Usage mode</a></li>
@@ -218,17 +218,18 @@
 
         <ul>
             <li><a href="#basics">The Basics</a></li>
-            <li><a href="#basic_help">Predefined usage message</a></li>
+            <li><a href="#mapping">Parameters mapping</a></li>
+            <li><a href="#valid_identifiers">Valid identifiers</a></li>
             <li><a href="#aliases">Aliases</a></li>
-            <li><a href="#publicnames">Public names</a></li>
-            <li><a href="#optset">optset</a></li>
+            <li><a href="#optset">Defining common options</a></li>
+            <li><a href="#decorators">Decorators</a></li>
             <li><a href="#advanced_optset">Advanced optset</a></li>
             <li><a href="#mode">Usage mode</a></li>
-            <li><a href="#badusage">Handling bad usage</a></li>
-            <li><a href="#badsyntax">Handling bad syntax</a></li>
+            <li><a href="#badusage">Handling incorrect usage</a></li>
+            <li><a href="#badsyntax">Handling incorrect syntax</a></li>
+            <li><a href="#basic_help">Basic help</a></li>
             <li><a href="#moreonhelp">More on help</a></li>
             <li><a href="#varnames">Var names</a></li>
-            <li><a href="#decorators">Decorators</a></li>
         </ul>
 
         <h3><a name="basics">The basics</a></h3>
@@ -269,46 +270,60 @@ Example().process(sys.argv)</pre>
         <pre>[--compress] file</pre>
         <pre>[--verbose] file [where]</pre>
 
-        <p>The suffix for each parameter on the handlers define the parameter role. The valid suffixes are:</p>
+        <h3><a name="mapping">Parameters mapping</a></h3>
+
+        <p>Methods defined with <b>@optmatcher</b> will handle the parameters given in the command line. The mapping
+            between the options/flags and the method parameters can be defined in two ways:</p>
         <ul>
-            <li><b>Flag</b> or <b>_flag</b></li>
-            <li><b>Option</b> or <b>_option</b></li>
-            <li><b>Prefix</b> or <b>_prefix</b></li>
-            <li><b>OptionInt</b> or <b>_option_int</b>: the associated value is converted to an integer</li>
-            <li><b>OptionFloat</b> or <b>_option_float</b>: the associated value is converted to a float number</li>
+            <li>By convention on the parameter names: the suffix for each parameter on the handlers
+                define the parameter role. The valid suffixes are:
+                <ul>
+                    <li><b>Flag</b> or <b>_flag</b></li>
+                    <li><b>Option</b> or <b>_option</b></li>
+                    <li><b>Prefix</b> or <b>_prefix</b></li>
+                    <li><b>OptionInt</b> or <b>_option_int</b>: the associated value is converted to an integer</li>
+                    <li><b>OptionFloat</b> or <b>_option_float</b>: the associated value is
+                        converted to a float number</li>
+                </ul>
+            </li>
+            <li>Providing full information in the <i>@optmatcher</i> decorator: the following method defines a flag
+                called compress:
+            </li>
         </ul>
 
-        <p>Please note that <b>optmatch</b> automatically expands all shell/user
-            variables in the options.</p>
+        <pre>@optmatcher(flags='compress')
+def handle_compression(self, file, compress):
+		...</pre>
+
+        <p>Full information on the <i>@optmatcher</i> decorator is given <a href="#decorators">below</a>.
+            Note that it is not allowed to mix both alternatives: if the <i>@optmatcher</i> decorator
+            includes any information, the method names will not be processed.</p>
 
 
-        <h3><a name="basic_help">Basic help</a></h3>
-        <p>In the previous example, in addition to the two specified cases, the user can enter
-            <i>--help</i>
-            to receive some basic usage information. It would look like:</p>
+        <h3><a name="valid_identifiers">Valid identifiers</a></h3>
 
-        <pre>Usage: [common options] file where
+        <p>A flag such as <i>--dry-run</i> would be mapped to a parameter called
+            <i>dry-run/dry-run_flag/dry-runFlag</i>, which are not valid python identifiers.
+            The library will automatically convert a parameter name such as <i>dryRunFlag</i> or <i>dry_run_flag</i>
+            into a command line option called <i>--dry-run</i>.</p>
 
-options:
-  --compress
-  -h, --help            shows this help message
-  --verbose
+        <p>This is convenient, but it still does not support options that would be converted to invalid python
+           identifiers. For example, <i>-$</i>, <i>-2</i> or <i>--import</i>.
+           In this case, it is needed to specify the option using the full <b>@optmatcher</b> decoration. For example:
+        </p>
 
-alternatives:
+        <pre>@optmatcher(flags='2) def handle(_2): pass</pre>
 
-* --compress file       Compress the specified file
+        <p>In this example, it will be expected a flag called <i>2</i>, and it will be mapped to the first parameter,
+            whose name, once removed any non alpha-numerical characters, match the given flag.</p>
 
-* [--verbose (False)] file [where]
-                        Moves the file to the specified directory
+        <p>Full control about the mapping flag-parameter can be specified using the decorator, using the operator
+            <b>as</b>:</p>
 
-* -h                    shows the help message</pre>
+        <pre>@optmatcher(flags='load as import') def handle(load): pass</pre>
 
-        <p>Note that the documentation for each handlers is used to document the alternatives,
-            but the options are not documented. To document them, it is needed to supply it as:</p>
+        <p>In this case, the parameter load is mapped to a flag called <i>--import</i>.</p>
 
-        <pre>OptionMatcher.set_usage_info(options_help={'compress':'compress the specified file'})</pre>
-
-        <p>The information for all the options must be provided at once, in a dictionary.</p>
 
 
         <h3><a name="aliases">Aliases</a></h3>
@@ -325,54 +340,7 @@ alternatives:
         <p>The help system automatically displays the option's aliases.</p>
 
 
-        <h3><a name="publicnames">Public names</a></h3>
-
-        <p>As specifed so far, <b>optmatch</b>
-            would not be able to handle options that are not valid variable names. For example,
-            how to define the flag <i>dry-run</i> or the option
-            <i>email@</i>?</p>
-
-        <p>As it happens, options are quite well behaven, defined usually as valid Python
-            variable names: it is not usual to have an option starting with a digit, or having
-            a character such as <i>$</i> or <i>@</i> inside.
-            In any case, <b>optmatch</b> allows such possibilities, although
-            it must be explicitly programmed.</p>
-
-        <p>The most usual case envolves using dashes, like in <i>dry-run</i>.
-            <b>optmatch</b> automatically translates camel case into dashes, so
-            the following example:</p>
-
-        <pre>@optmatcher
-def handle(self, dry_run_flag):
-		...	</pre>
-
-        <p>expects the flag <i>dry-run</i>, instead of the flag
-            <i>dry_run</i>.</p>
-
-        <p>This behaviour can be embedded in the decorator, using the <i>as</i>
-            specification. The previous example is equivalent to:</p>
-
-        <pre>@optmatcher(flags='d as dry-run')
-def handle(self, d):
-		...	</pre>
-
-        <p>Obviously, this possibility allows defining any kind of option, using all kind
-            of illegal variable names:</p>
-
-        <pre>@optmatcher(flags='d as @f***ing!')
-def handle(self, d):
-		...	</pre>
-
-        <p>Yes, this handler expects a flag <i>--@f***ing!</i></p>
-
-        <p>Although the previous two possibilites should cover all the bases, it is still
-            possible to define a mapping for these <b>public names</b>
-            on the <i>OptionMatcher</i> constructor, or using its
-            <i>set_public_names</i> method, which expects a dictionary, such as:</p>
-        <pre>OptionMatcher.set_public_names({'d':'@f***ing!'})</pre>
-
-
-        <h3><a name="optset">optset</a></h3>
+        <h3><a name="optset">Defining common options</a></h3>
 
         <p>There are cases where one or more options apply to multiple handlers. A typical
             example would be the verbose flag. Instead of defining it on all the matchers, it is
@@ -400,6 +368,80 @@ def handle_help(self, help=False):
 
         <p>In this case, the method will be always called, which simplifies setting some common
             variables</p>
+
+
+        <h3><a name="decorators">Decorators</a></h3>
+
+        <p>The two decorators in this module, <b>optmatcher</b> and
+            <b>optset</b>, allows defining the behaviour of the underlying
+            matcher via their parameters. Both decorators share most of the parameters:
+        </p>
+
+        <ul>
+            <li><b>options</b>: defines which of the parameters are considered options.
+                This parameter is a string, where the defined options are separated by commas, like in:
+
+                <pre>@optmatcher(options='mode, file')
+def matcher(self, mode, file):
+   ...
+</pre>
+
+                Each of the parameters can be defined like:
+                <pre>parameter as public_name</pre>
+                For example:
+
+                <pre>@optmatcher(options='mode as verbose-mode, file as target.file')
+def matcher(self, mode, file):
+   ...
+</pre>
+
+                In this example, the matcher expects two options, named <span class='code'>verbose-mode</span>
+                and <span class='code'>target-file</span>
+
+            </li>
+
+            <li><b>int_options</b>: defines which of the parameters are considered
+                options associated to integer values. The remarks given to the normal options also apply
+                for integer options.
+            </li>
+
+            <li><b>float_options</b>: defines which of the parameters are considered
+                options associated to floatvalues. The remarks given to the normal options also apply
+                for float options.
+            </li>
+
+            <li><b>prefixes</b>: defines which of the parameters are considered
+                prefixes. The remarks given to the normal options also apply for prefixes.
+            </li>
+
+            <li><b>flags</b>: defines which of the parameters are considered
+                flags. The remarks given to the normal options also apply for flags. As additional feature,
+                it is possible to define <b>orphan flags</b>, which are specified in the
+                decorator, but have no associated matching parameter. For example:
+
+                <pre>@optset(flags='quiet')
+def set_quiet(self):
+   ...
+</pre>
+
+                In this case, only when the user enters <span class='code'>--quiet</span>, this matcher
+                is invoked. Note that it would be possible to introduce a parameter
+                <span class='code'>quiet</span> in this matcher, but, when invoked, it would always
+                be set to True. Hereby, it is possible to define it on the decorator only.
+            </li>
+
+            <li><b>priority</b>. Matchers are tried in order, being the order defined
+                by alphabetical sorting on the matcher method names. This order can be observed when the help
+                lists all the alternatived for the current <b>OptionMatcher</b>. It is
+                possible to alter this order by defining the priorities of each matcher. Higher priorities
+                are invoked first.
+            </li>
+
+        </ul>
+
+        <p>The <i>optset</i> decorator can define one additional attribute called <i>applies</i>,
+            and the <i>optmatch</i> decorator has also one related attribute called <i>exclusive</i>, both
+            explained in the following section</p>
 
 
         <h3><a name="advanced_optset">Advanced optset</a></h3>
@@ -501,6 +543,35 @@ def handle(self, test_flag, file_option):
             the syntax or aliases are incorrectly defined. It does not depend on the user's input.</p>
 
 
+        <h3><a name="basic_help">Basic help</a></h3>
+        <p>In the previous example, in addition to the two specified cases, the user can enter
+            <i>--help</i>
+            to receive some basic usage information. It would look like:</p>
+
+        <pre>Usage: [common options] file where
+
+options:
+  --compress
+  -h, --help            shows this help message
+  --verbose
+
+alternatives:
+
+* --compress file       Compress the specified file
+
+* [--verbose (False)] file [where]
+                        Moves the file to the specified directory
+
+* -h                    shows the help message</pre>
+
+        <p>Note that the documentation for each handlers is used to document the alternatives,
+            but the options are not documented. To document them, it is needed to supply it as:</p>
+
+        <pre>OptionMatcher.set_usage_info(options_help={'compress':'compress the specified file'})</pre>
+
+        <p>The information for all the options must be provided at once, in a dictionary.</p>
+
+
         <h3><a name="moreonhelp">More on help</a></h3>
 
         <p>By default, <b>optmatcher</b> adds a matcher to handle help requests.
@@ -543,7 +614,7 @@ def handle_help(self, help_flag):
 
         <pre>filename = FILENAME</pre>
 
-        <p>It is possible to redefine the associated variable (hende the var name), by setting
+        <p>It is possible to redefine the associated variable (hence the var name), by setting
             the var names on the constructor:</p>
 
         <pre>OptionMatcher(option_var_names{'filename':'ORIGIN'})</pre>
@@ -551,93 +622,6 @@ def handle_help(self, help_flag):
         <p>This would print a usage message such as:</p>
 
         <pre>filename = ORIGIN</pre>
-
-
-        <h3><a name="decorators">Decorators</a></h3>
-
-        <p>The two decorators in this module, <b>optmatcher</b> and
-            <b>optset</b>, allows defining the behaviour of the underlying
-            matcher via their parameters. Both decorators share most of the parameters:
-        </p>
-
-        <ul>
-            <li><b>options</b>: defines which of the parameters are considered options.
-                This parameter is a string, where the defined options are separated by commas, like in:
-
-                <pre>@optmatcher(options='mode, file')
-def matcher(self, mode, file):
-   ...
-</pre>
-
-                Each of the parameters can be defined like:
-                <pre>parameter as public_name</pre>
-                For example:
-
-                <pre>@optmatcher(options='mode as verbose-mode, file as target.file')
-def matcher(self, mode, file):
-   ...
-</pre>
-
-                In this example, the matcher expects two options, named <span class='code'>verbose-mode</span>
-                and <span class='code'>target-file</span>
-
-            </li>
-
-            <li><b>int_options</b>: defines which of the parameters are considered
-                options associated to integer values. The remarks given to the normal options also apply
-                for integer options.
-            </li>
-
-            <li><b>float_options</b>: defines which of the parameters are considered
-                options associated to floatvalues. The remarks given to the normal options also apply
-                for float options.
-            </li>
-
-            <li><b>prefixes</b>: defines which of the parameters are considered
-                prefixes. The remarks given to the normal options also apply for prefixes.
-            </li>
-
-            <li><b>flags</b>: defines which of the parameters are considered
-                flags. The remarks given to the normal options also apply for flags. As additional feature,
-                it is possible to define <b>orphan flags</b>, which are specified in the
-                decorator, but have no associated matching parameter. For example:
-
-                <pre>@optset(flags='quiet')
-def set_quiet(self):
-   ...
-</pre>
-
-                In this case, only when the user enters <span class='code'>--quiet</span>, this matcher
-                is invoked. Note that it would be possible to introduce a parameter
-                <span class='code'>quiet</span> in this matcher, but, when invoked, it would always
-                be set to True. Hereby, it is possible to define it on the decorator only.
-            </li>
-
-            <li><b>rename_pars</b>: defines the public name for the parameter
-                variables. For example:
-
-                <pre>@optmatcher(rename_pars='d as dir')
-def handle(self, d):
-   ...
-</pre>
-
-                The help associated to this matcher would show the parameter <span class='code'>d</span>
-                with the name <span class='code'>dir</span>.
-
-            <li><b>priority</b>. Matchers are tried in order, being the order defined
-                by alphabetical sorting on the matcher method names. This order can be observed when the help
-                lists all the alternatived for the current <b>OptionMatcher</b>. It is
-                possible to alter this order by defining the priorities of each matcher. Higher priorities
-                are invoked first.
-            </li>
-
-        </ul>
-
-        <p>In addition, <b>optset</b> can define the matchers to which it applies,
-            using the <span class='code'>applies</span> parameter in the decorator, as described in
-            the <a href='#advanced_optset'>advanced optset tutorial</a>. Its counterpart is the
-            <span class='code'>exclusive</span> parameter in the
-            <b>optmatcher</b> decorator.</p>
 
 
         <h2><a name='history'>History</a></h2>
