@@ -10,7 +10,7 @@ import re
 import sys
 from sre_constants import error as RegularExpresionError
 
-__version__ = '0.9.1'
+__version__ = '0.9.2'
 
 __all__ = ['optset', 'optmatcher',
            'OptionMatcher', 'OptionMatcherException', 'UsageException']
