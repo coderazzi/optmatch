@@ -2168,7 +2168,7 @@ options:
 class BugTests(Tests):
     """Bug tests"""
 
-    def bug00001_a(self):
+    def test_bug00001_a(self):
         """Options with underscores are not properly handled:
         an options='import_folder' will require user to enter
         '--import_folder'.
@@ -2192,7 +2192,7 @@ class BugTests(Tests):
         self.assertEqual(('database', 'folder'), Simple().process(
             [None, '--import-folder=folder', 'database']))
 
-    def bug00001_b(self):
+    def test_bug00001_b(self):
         """Options with underscores are not properly handled:
         an options='import_folder' will require user to enter
         '--import_folder'
@@ -2221,7 +2221,7 @@ class BugTests(Tests):
         self.assertEqual(('database', 'folder'), Simple().process(
             [None, '--import-folder=folder', 'database']))
 
-    def bug00002_a(self):
+    def test_bug00002_a(self):
         """cannot create decorate flag / option with reserved word
            case 1: not a bug: it can be used ' as ' on the definition
         """
@@ -2234,7 +2234,7 @@ class BugTests(Tests):
 
         self.assertTrue(Simple().process([None, '--import']))
 
-    def bug00002_b(self):
+    def test_bug00002_b(self):
         """cannot create decorate flag / option with reserved word
            case 2: it can be used underscores otherwise
         """
@@ -2247,7 +2247,7 @@ class BugTests(Tests):
 
         self.assertTrue(Simple().process([None, '--import']))
 
-    def bug00002_c(self):
+    def test_bug00002_c(self):
         """cannot create decorate flag / option with reserved word
            case 3: notation ' as ' is anyway required in some cases
         """
@@ -2259,7 +2259,7 @@ class BugTests(Tests):
 
         self.assertTrue(Simple().process([None, '-$']))
 
-    def bug00002_d(self):
+    def test_bug00002_d(self):
         """cannot create decorate flag / option with reserved word
            case 4: flag being a number
         """
@@ -2271,7 +2271,7 @@ class BugTests(Tests):
 
         self.assertTrue(Simple().process([None, '-2']))
 
-    def bug00002_e(self):
+    def test_bug00002_e(self):
         """cannot create decorate flag / option with reserved word
            case 5: forcing underscores
         """
@@ -2283,7 +2283,7 @@ class BugTests(Tests):
 
         self.assertTrue(Simple().process([None, '--dry_run']))
 
-    def bug00002_f(self):
+    def test_bug00002_f(self):
         """cannot create decorate flag / option with reserved word
            case 5: forcing underscores, do not mind the 'as' map
         """
