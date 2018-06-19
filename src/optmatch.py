@@ -412,7 +412,9 @@ class OptMatcherInfo(object):
         self.options = {}  # maps option name to parameter index
         self.prefixes = {}  # maps prefix name to parameter index
         self.converts = {}  # maps from index (option) to convert function
-        self.pars = {}  # maps parameter index to parameter name
+        # self.pars maps parameter index to parameter name - a parameter
+        # is any method' variable that is not a flag, option, prefix, etc
+        self.pars = {}
         self.last_arg = 1  # the last available variable index plus 1
         self.orphan_flags = 0  # flags without associated variable
         self.func = func
@@ -448,6 +450,7 @@ class OptMatcherInfo(object):
                 transform = i.islower()
             return ''.join(ret)
 
+        used = set()
         for var in par_names:
             match = self.FLAG_PATTERN.match(var)
             if match:
@@ -462,9 +465,11 @@ class OptMatcherInfo(object):
                         self.converts[self.last_arg] = self._as_int
                     elif what in ['OptionFloat', '_option_float']:
                         self.converts[self.last_arg] = self._as_float
-                if use_name in goes:
-                    raise OptionMatcherException('%s: %s' % (self.describe(),
-                                                             use_name))
+                if use_name in used:
+                    raise OptionMatcherException(
+                        '%s: Invalid parameter reuse: %s' %
+                        (self.describe(), use_name))
+                used.add(use_name)
                 goes[use_name] = self.last_arg
             else:
                 self.pars[self.last_arg] = var
@@ -476,7 +481,7 @@ class OptMatcherInfo(object):
 
         def get_decoration_definitions(decoration):
             # The returned value maps names to 'as' values, if present, or to
-            #  themselves, otherwise, for a given decoration argument
+            #  None, otherwise, for a given decoration argument
             ret = {}
             if decoration:
                 try:
@@ -498,7 +503,7 @@ class OptMatcherInfo(object):
         # It also enables the usage of reserved words: a flag 'import' could
         # be associated to a variable import_', for example
         par_names = [self._NON_ALPHANUM.sub('', v) for v in par_names]
-        ints, floats, used = {}, {}, []
+        ints, floats, used = {}, {}, set()
         for att, group in [(self.flags, flags),
                            (self.options, options),
                            (self.prefixes, prefixes),
@@ -520,19 +525,20 @@ class OptMatcherInfo(object):
                         self.orphan_flags -= 1
                         att[name] = self.orphan_flags
                         continue
-                    raise OptionMatcherException('Invalid argument: ' + name)
-                if index in used:
+                    raise OptionMatcherException('%s: Invalid argument: %s' %
+                                                 (self.describe(), name))
+                par = value or name
+                if par in used:
                     raise OptionMatcherException(
-                        'Invalid argument redefinition: ' + name)
-                used.append(index)
-                att[value or name] = 1 + index
+                        '%s: Invalid parameter reuse: %s' %
+                        (self.describe(), name))
+                used.add(par)
+                att[par] = 1 + index
+
         # all groups are created as maps (name -> variable index), but for
         # params we invert the map, as the index is the important information
-        self.pars = dict([(a, b) for b, a in self.pars.items()])
-        # all function parameters that are not included as flags/options/
-        # prefixes are definitely considered parameters
-        self.pars.update(dict([(i + 1, v) for i, v in enumerate(par_names)
-                               if i not in used]))
+        self.pars = dict([(i + 1, v) for i, v in enumerate(par_names)
+                          if i not in used])
         # int_options and float_options are options with additional checks:
         self.options.update(ints)
         self.options.update(floats)
@@ -707,7 +713,6 @@ class OptMatcherHandler(OptMatcherInfo):
     def _get_invoking_pars(self):
         # Returns the parameters required to invoke the underlying function.
         # It returns a tuple (problem, *args, **kwargs)
-        provided = self.provided or self.provided_pars
         args, parameters = [], self.provided_pars[:]
         # we only check the indexes 1...last_arg, so the orphan flags are not
         # checked here (they are not used to invoke the method)

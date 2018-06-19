@@ -1,5 +1,5 @@
 # note that testing source version can be easily done as:
-# (export PYTHONPATH=../src/:$PYTHONPATH && python tests.py BugTests.bug00001_a)
+# (export PYTHONPATH=../src/:$PYTHONPATH && python tests.py BugTests.bug000)
 
 import unittest
 
@@ -468,8 +468,8 @@ class InternalTests(Tests):
         arg = CommandLine([None, '-a', 'par1', '-v'], m, True)
         ch = OptMatcherHandler(method, m)
         self.assertTrue(not ch.handle_arg(arg))
-        self.assertRaiseArg(UsageException,
-                            'Unexpected argument -v after non option arguments',
+        self.assertRaiseArg(UsageException, 'Unexpected argument -v after non'
+                                            ' option arguments',
                             ch.handle_arg, arg)
 
     def test0621(self):
@@ -969,8 +969,8 @@ class OptMatcherTests(Tests):
             def handle(self, vFlag, oFlag, par):
                 return vFlag, oFlag, par
 
-        self.assertRaiseArg(UsageException,
-                            'Unexpected argument -o after non option arguments',
+        self.assertRaiseArg(UsageException, 'Unexpected argument -o after '
+                                            'non option arguments',
                             Simple().process, [None, '-v', 'file', '-o'],
                             handle_usage_problems=False, gnu=True)
 
@@ -1048,7 +1048,7 @@ class OptMatcherTests(Tests):
 
             @optmatcher
             def handle(self, par):
-                return self.v == None
+                return self.v is None
 
         self.assertTrue(Simple().process([None, 'file']))
 
@@ -1179,7 +1179,8 @@ class OptMatcherTests(Tests):
             def handle(self, oOption, vOption): pass
 
         self.assertRaises(OptionMatcherException,
-                          Simple(aliases={'v': 'o'}, option_prefix='-').process,
+                          Simple(aliases={'v': 'o'},
+                                 option_prefix='-').process,
                           [])
 
     def test1047(self):
@@ -1314,7 +1315,7 @@ class OptMatcherTests(Tests):
                 return oOption, arg
 
         self.assertEqual(Simple(aliases={'o': 'opt'},
-                                option_prefix='/', \
+                                option_prefix='/',
                                 assigner=':').
                          process([None, '/opt:23', 'file']),
                          ('23', 'file'))
@@ -1553,7 +1554,8 @@ class OptMatcherTestsOnDecoration(Tests):
         self.assertTrue(Simple().process([None, '-vo']))
 
     def test3016(self):
-        """defining flags with as, with collision - one parameter is not used at all"""
+        """defining flags with as, with collision -
+        one parameter is not used at all"""
 
         class Simple(OptionMatcher):
 
@@ -1561,9 +1563,57 @@ class OptMatcherTestsOnDecoration(Tests):
             def handle(self, v1, w1):
                 return v1, w1
 
-        #Simple().process([None, '--help'])
-        print(Simple().process([None, '--w1=large']))
-        #self.assertEquals(('large', 'large'), Simple().process([None, '--w1=large']))
+        self.assertRaiseArg(OptionMatcherException,
+                            'method Simple.handle: Invalid parameter '
+                            'reuse: w1',
+                            Simple().process, [None, '--w1=large'])
+
+    def test3017(self):
+        """defining flags/options matching same parameter"""
+
+        class Simple(OptionMatcher):
+
+            @optmatcher(options='v', flags='v')
+            def handle(self, v):
+                return v
+
+        self.assertRaiseArg(OptionMatcherException,
+                            'method Simple.handle: Invalid parameter reuse: v',
+                            Simple().process, [None, '--v=2'])
+
+    def test3018(self):
+        """defining flags/options matching same parameter"""
+
+        class Simple(OptionMatcher):
+
+            @optmatcher
+            def handle(self, v_flag, v_option):
+                pass
+
+        self.assertRaiseArg(OptionMatcherException,
+                            'method Simple.handle: Invalid parameter reuse: v',
+                            Simple().process, [None, '-v', '--v=2'])
+
+    def test3018b(self):
+        """defining flags/options matching same parameter"""
+
+        class Simple(OptionMatcher):
+
+            @optmatcher(options='v_flag as vv')
+            def handle(self, v_flag):
+                return v_flag
+
+        self.assertEqual('2', Simple().process([None, '--vv=2']))
+
+    def test3018c(self):
+        """defining flags/options matching same parameter"""
+
+        class Simple(OptionMatcher):
+            @optmatcher
+            def handle(self, vv_option):
+                return vv_option
+
+        self.assertEqual('2', Simple().process([None, '--vv=2']))
 
     def test3019(self):
         """Defining a non existing option"""
@@ -1575,7 +1625,7 @@ class OptMatcherTestsOnDecoration(Tests):
                 return True
 
         self.assertRaiseArg(OptionMatcherException,
-                            'Invalid argument: k',
+                            'method Simple.handleA: Invalid argument: k',
                             Simple().process, [None])
 
     def test3020(self):
@@ -1603,7 +1653,7 @@ class OptMatcherTestsOnDecoration(Tests):
                 pass
 
         self.assertRaiseArg(OptionMatcherException,
-                            'Invalid argument: k',
+                            'method Simple.handleB: Invalid argument: k',
                             Simple().process, [None])
 
     def test3022(self):
@@ -1616,7 +1666,7 @@ class OptMatcherTestsOnDecoration(Tests):
                 pass
 
         self.assertRaiseArg(OptionMatcherException,
-                            'Invalid argument: k',
+                            'method Simple.handleB: Invalid argument: k',
                             Simple().process, [None])
 
     def test3023(self):
@@ -1700,10 +1750,7 @@ class OptMatcherTestsOnDecoration(Tests):
 
             @optset(priority=1)
             def handleB(self, kFlag):
-                try:
-                    self.k = self.o
-                except:
-                    self.k = False
+                self.k = self.o
 
             @optmatcher
             def handle(self):
@@ -1726,10 +1773,7 @@ class OptMatcherTestsOnDecoration(Tests):
 
             @optset(priority=2)
             def handleB(self, kFlag):
-                try:
-                    self.k = self.o
-                except:
-                    self.k = False
+                self.k = self.o
 
             @optmatcher
             def handle(self):
@@ -2057,7 +2101,8 @@ options:
      -r R"""
 
         self.checkString(usage.get_usage_string(width=30, column=15, ident=5,
-                                              include_alternatives=False), expected)
+                                                include_alternatives=False),
+                         expected)
 
     def test6006(self):
         """Verifying optionality on arguments"""
@@ -2124,30 +2169,42 @@ class BugTests(Tests):
     """Bug tests"""
 
     def bug00001_a(self):
-        """Options with underscores are not properly handled:  an options='import_folder' will require user
-            to enter '--import_folder' This problem does not happen if option specified as 'import_folder_option'
-            Note that entering options='import-folder' would raise an Exception
+        """Options with underscores are not properly handled:
+        an options='import_folder' will require user to enter
+        '--import_folder'.
 
-            Case 1: cannot define an option as 'import-folder': 0.9.1 raises an exception
-            optmatch.OptionMatcherException: Invalid argument: import-folder
-            """
+        This problem does not happen if option specified as
+        'import_folder_option'
+
+        Note that entering options='import-folder' would raise an Exception
+
+        Case 1: cannot define an option as 'import-folder': 0.9.1 raises
+        an exception optmatch.OptionMatcherException: Invalid argument:
+        import-folder
+        """
 
         class Simple(OptionMatcher):
 
-            @optmatcher( options='import-folder')
+            @optmatcher(options='import-folder')
             def load_fail(self, import_folder,  database):
                 return database, import_folder
 
-        self.assertEqual(('database', 'folder'), Simple().process([None, '--import-folder=folder', 'database']))
+        self.assertEqual(('database', 'folder'), Simple().process(
+            [None, '--import-folder=folder', 'database']))
 
     def bug00001_b(self):
-        """Options with underscores are not properly handled:  an options='import_folder' will require user
-            to enter '--import_folder' This problem does not happen if option specified as 'import_folder_option'
-            Note that entering options='import-folder' would raise an Exception
+        """Options with underscores are not properly handled:
+        an options='import_folder' will require user to enter
+        '--import_folder'
+        This problem does not happen if option specified as
+        'import_folder_option'
 
-            Case 2: option is defined as import_folder, but then user cannot enter --import-folder
-              It works fine if entered as parameter name, with underscores
-            """
+        Note that entering options='import-folder' would raise an Exception
+
+        Case 2: option is defined as import_folder, but then user cannot enter
+        --import-folder
+        It works fine if entered as parameter name, with underscores
+        """
 
         class Simple(OptionMatcher):
 
@@ -2159,8 +2216,10 @@ class BugTests(Tests):
             def load_fail(self, import_folder,  database):
                 return database, import_folder
 
-        self.assertEqual(('database', 'folder'), Simple().process([None, '--import-path=folder', 'database']))
-        self.assertEqual(('database', 'folder'), Simple().process([None, '--import-folder=folder', 'database']))
+        self.assertEqual(('database', 'folder'), Simple().process(
+            [None, '--import-path=folder', 'database']))
+        self.assertEqual(('database', 'folder'), Simple().process(
+            [None, '--import-folder=folder', 'database']))
 
     def bug00002_a(self):
         """cannot create decorate flag / option with reserved word
@@ -2234,7 +2293,6 @@ class BugTests(Tests):
             @optmatcher(flags='dry_run as dry_run')
             def handle(self, dry_run): return dry_run
 
-        #Simple().process([None, '-h'])
         self.assertTrue(Simple().process([None, '--dry_run']))
 
 
