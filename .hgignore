@@ -1,3 +1,5 @@
 syntax: glob
 .idea/workspace.xml
 **/*.pyc
+src/dist
+src/MANIFEST

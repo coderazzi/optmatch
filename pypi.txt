@@ -1,0 +1,61 @@
+Uploading package to pypi
+=========================
+
+* https://jonemo.github.io/neubertify/2017/09/13/publishing-your-first-pypi-package/
+
+A- Create accounts in pypi.org
+	https://testpypi.python.org/pypi/
+	https://pypi.org/account/register/
+
+
+B- Create file ~/.pypirc
+
+	[distutils]
+	index-servers =
+	  pypi
+	  pypitest
+
+	[pypi]
+	repository=https://upload.pypi.org/legacy/
+	username=coderazzi
+	password=***********
+
+	[pypitest]
+	repository=https://test.pypi.org/legacy/
+	username=coderazzi
+	password=***********
+
+C- Install twine
+
+	pip install twine
+
+
+
+Next steps needed always
+
+1- Edit file setup.py
+
+	Version must be modified !!
+
+
+2- Check that the code conforms to standards:
+
+	pycodestyle src/optmatch.py src/setup.py test/tests.py 
+
+
+3- Create the package
+
+	(cd src && python setup.py sdist)
+
+	this creates the file src/dist/optmatch-0.9.2.tar.gz
+
+
+4- Upload the package
+
+	twine upload -r pypitest src/dist/optmatch-0.9.2.tar.gz 
+
+	# check version in https://test.pypi.org/project/optmatch
+
+	twine upload -r pypi src/dist/optmatch-0.9.2.tar.gz 
+
+	# check it in https://pypi.org/project/optmatch/

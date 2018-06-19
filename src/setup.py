@@ -9,7 +9,7 @@ def readme():
 setup(
     name='optmatch',
     py_modules=['optmatch'],
-    version='0.9.1',
+    version='0.9.2',
     description='command line parsing library',
     author='coderazzi (LuisM Pena)',
     author_email='coderazzi@gmail.com',
