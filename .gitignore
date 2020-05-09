@@ -1,0 +1,5 @@
+/.idea
+optmatch.iml
+**/*.pyc
+/src/dist
+/src/MANIFEST
