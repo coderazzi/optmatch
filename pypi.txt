@@ -42,6 +42,7 @@ Next steps needed always
 
 	pycodestyle src/optmatch.py src/setup.py test/tests.py 
 
+    (sudo apt install pycodestyle)
 
 3- Create the package
 
