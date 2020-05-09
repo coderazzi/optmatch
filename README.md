@@ -1,6 +1,6 @@
 # optmatch - Python command line parsing made easy
 
-Full documentation: http://coderazzi.net/python/optmatch
+Full documentation: https://coderazzi.net/python/optmatch
 
 *   [Quick introduction](#quick-introduction)
 *   [Purpose](#purpose)
@@ -119,9 +119,9 @@ Finally, **optmatch** uses the concept 'gnu mode'. If specifically defined, it i
 
 ## Tutorial
 
-*   [The Basics](#basics)
+*   [The Basics](#the-basics)
 *   [Parameters mapping](#parameters-mapping)
-*   [Valid identifiers](#valid_identifiers)
+*   [Valid identifiers](#valid-identifiers)
 *   [Aliases](#aliases)
 *   [Defining common options](#defining-common-options)
 *   [Decorators](#decorators)
@@ -322,7 +322,7 @@ enables Windows typical mode:
 
     /mode:optimized
 
-###  incorrect usage
+###  Handling incorrect usage
 
 When the user's input does not match the expected input, an exception is raised.
 
